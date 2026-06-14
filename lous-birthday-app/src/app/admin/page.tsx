@@ -16,6 +16,22 @@ type DrinkFormState = {
   description: string;
 };
 
+type RawOrderDrink = {
+  id: string;
+  name: string;
+  price_dkk: number;
+};
+
+type RawOrderRow = {
+  id: string;
+  guest_name: string;
+  quantity: number;
+  note: string | null;
+  status: OrderStatus;
+  created_at: string;
+  drinks: RawOrderDrink | RawOrderDrink[] | null;
+};
+
 const DRINK_IMAGES_BUCKET = "drink-images";
 
 export default function AdminPage() {
@@ -58,7 +74,14 @@ export default function AdminPage() {
       return;
     }
 
-    setOrders((data ?? []) as OrderWithDrink[]);
+    const normalizedOrders: OrderWithDrink[] = ((data ?? []) as RawOrderRow[]).map(
+      (row) => ({
+        ...row,
+        drinks: Array.isArray(row.drinks) ? (row.drinks[0] ?? null) : row.drinks,
+      })
+    );
+
+    setOrders(normalizedOrders);
     setLoading(false);
   };
 
