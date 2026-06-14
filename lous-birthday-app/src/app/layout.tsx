@@ -17,6 +17,10 @@ export const metadata: Metadata = {
   title: "Lou's Birthday Bar",
   description: "Bestil drinks til festen",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/pwa-icon.svg",
+    apple: "/apple-icon",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
