@@ -14,6 +14,14 @@ type MyOrder = {
   } | null;
 };
 
+type RawMyOrderRow = {
+  id: string;
+  quantity: number;
+  status: OrderStatus;
+  created_at: string;
+  drinks: { name: string } | { name: string }[] | null;
+};
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<MyOrder[]>([]);
   const [nickname, setNickname] = useState<string>("");
@@ -41,7 +49,12 @@ export default function OrdersPage() {
         return;
       }
 
-      setOrders((data ?? []) as MyOrder[]);
+      const normalizedOrders: MyOrder[] = ((data ?? []) as RawMyOrderRow[]).map((row) => ({
+        ...row,
+        drinks: Array.isArray(row.drinks) ? (row.drinks[0] ?? null) : row.drinks,
+      }));
+
+      setOrders(normalizedOrders);
       setLoading(false);
     };
 
