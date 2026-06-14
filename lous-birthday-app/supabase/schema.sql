@@ -177,9 +177,3 @@ for delete
 to anon, authenticated
 using (true);
 
-insert into public.drinks (name, description, price_dkk)
-values
-  ('Aperol Spritz', 'Frisk og let bitter med bobler', 65),
-  ('Espresso Martini', 'Kaffe, vodka og sødme', 75),
-  ('Mojito', 'Mynte, lime og rom', 70)
-on conflict do nothing;

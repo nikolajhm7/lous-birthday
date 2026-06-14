@@ -50,6 +50,7 @@ export default function OrdersPage() {
     });
   const previousStatusesRef = useRef<Record<string, OrderStatus>>({});
   const swipeStartXRef = useRef<Record<string, number>>({});
+  const activeSwipeRef = useRef<{ groupId: string; pointerId: number } | null>(null);
   const [swipeOffset, setSwipeOffset] = useState<Record<string, number>>({});
 
   const urlBase64ToUint8Array = (base64String: string) => {
@@ -358,15 +359,36 @@ export default function OrdersPage() {
     });
   };
 
-  const handleTouchStart = (groupId: string, clientX: number, status: OrderStatus) => {
+  const handlePointerStart = (
+    groupId: string,
+    status: OrderStatus,
+    pointerId: number,
+    clientX: number,
+    target: EventTarget & Element
+  ) => {
     if (!canCancel(status)) {
       return;
     }
+
+    activeSwipeRef.current = { groupId, pointerId };
     swipeStartXRef.current[groupId] = clientX;
+    if ("setPointerCapture" in target) {
+      target.setPointerCapture(pointerId);
+    }
   };
 
-  const handleTouchMove = (groupId: string, clientX: number, status: OrderStatus) => {
+  const handlePointerMove = (
+    groupId: string,
+    status: OrderStatus,
+    pointerId: number,
+    clientX: number
+  ) => {
     if (!canCancel(status)) {
+      return;
+    }
+
+    const active = activeSwipeRef.current;
+    if (!active || active.groupId !== groupId || active.pointerId !== pointerId) {
       return;
     }
 
@@ -380,9 +402,25 @@ export default function OrdersPage() {
     setSwipeOffset((previous) => ({ ...previous, [groupId]: clamped }));
   };
 
-  const handleTouchEnd = (groupId: string, status: OrderStatus) => {
+  const handlePointerEnd = (
+    groupId: string,
+    status: OrderStatus,
+    pointerId: number,
+    target: EventTarget & Element
+  ) => {
     if (!canCancel(status)) {
       return;
+    }
+
+    const active = activeSwipeRef.current;
+    if (!active || active.groupId !== groupId || active.pointerId !== pointerId) {
+      return;
+    }
+
+    activeSwipeRef.current = null;
+
+    if ("releasePointerCapture" in target) {
+      target.releasePointerCapture(pointerId);
     }
 
     const currentOffset = swipeOffset[groupId] ?? 0;
@@ -437,12 +475,23 @@ export default function OrdersPage() {
               </div>
               <article
                 className="card-float glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y"
-                onTouchEnd={() => handleTouchEnd(order.groupId, order.status)}
-                onTouchMove={(event) =>
-                  handleTouchMove(order.groupId, event.touches[0].clientX, order.status)
+                onPointerDown={(event) =>
+                  handlePointerStart(
+                    order.groupId,
+                    order.status,
+                    event.pointerId,
+                    event.clientX,
+                    event.currentTarget
+                  )
                 }
-                onTouchStart={(event) =>
-                  handleTouchStart(order.groupId, event.touches[0].clientX, order.status)
+                onPointerMove={(event) =>
+                  handlePointerMove(order.groupId, order.status, event.pointerId, event.clientX)
+                }
+                onPointerUp={(event) =>
+                  handlePointerEnd(order.groupId, order.status, event.pointerId, event.currentTarget)
+                }
+                onPointerCancel={(event) =>
+                  handlePointerEnd(order.groupId, order.status, event.pointerId, event.currentTarget)
                 }
                 style={{
                   transform: `translateX(${swipeOffset[order.groupId] ?? 0}px)`,
