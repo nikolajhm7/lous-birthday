@@ -47,6 +47,13 @@ export async function POST(request: Request) {
 
   const subscriptions = (data ?? []) as DbSubscription[];
 
+  if (subscriptions.length === 0) {
+    return NextResponse.json(
+      { error: "No subscriptions found for guest", sent: 0 },
+      { status: 404 }
+    );
+  }
+
   await Promise.all(
     subscriptions.map(async (sub) => {
       try {

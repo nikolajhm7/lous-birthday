@@ -201,7 +201,7 @@ export default function AdminPage() {
       if (targetOrder) {
         const firstDrink = targetOrder.items[0]?.drinkName ?? "Din bestilling";
 
-        await fetch("/api/push/notify", {
+        const response = await fetch("/api/push/notify", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -212,6 +212,13 @@ export default function AdminPage() {
             body: `${firstDrink} er klar til afhentning`,
           }),
         });
+
+        if (!response.ok) {
+          const result = (await response.json().catch(() => null)) as
+            | { error?: string; sent?: number }
+            | null;
+          setError(result?.error ?? "Push-notifikation kunne ikke sendes.");
+        }
       }
     }
   };

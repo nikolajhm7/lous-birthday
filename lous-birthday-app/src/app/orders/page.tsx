@@ -52,6 +52,9 @@ export default function OrdersPage() {
   const swipeStartXRef = useRef<Record<string, number>>({});
   const activeSwipeRef = useRef<{ groupId: string; pointerId: number } | null>(null);
   const [swipeOffset, setSwipeOffset] = useState<Record<string, number>>({});
+  const [isDragging, setIsDragging] = useState<Record<string, boolean>>({});
+  const [isRemoving, setIsRemoving] = useState<Record<string, boolean>>({});
+  const removingGroupsRef = useRef<Record<string, boolean>>({});
 
   const urlBase64ToUint8Array = (base64String: string) => {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -241,8 +244,10 @@ export default function OrdersPage() {
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
-      syncAndNotifyReadyTransitions(groupedList);
-      setGroupedOrders(groupedList);
+      const visibleList = groupedList.filter((order) => !removingGroupsRef.current[order.groupId]);
+
+      syncAndNotifyReadyTransitions(visibleList);
+      setGroupedOrders(visibleList);
       setLoading(false);
     };
 
@@ -340,11 +345,33 @@ export default function OrdersPage() {
 
   const canCancel = (status: OrderStatus) => status === "new" || status === "in_progress";
 
+  const setRemovingState = (groupId: string, removing: boolean) => {
+    if (removing) {
+      removingGroupsRef.current[groupId] = true;
+      setIsRemoving((previous) => ({ ...previous, [groupId]: true }));
+      return;
+    }
+
+    delete removingGroupsRef.current[groupId];
+    setIsRemoving((previous) => {
+      const next = { ...previous };
+      delete next[groupId];
+      return next;
+    });
+  };
+
   const cancelOrderGroup = async (groupId: string) => {
     const targetGroup = groupedOrders.find((order) => order.groupId === groupId);
     if (!targetGroup) {
       return;
     }
+
+    if (isRemoving[groupId]) {
+      return;
+    }
+
+    setRemovingState(groupId, true);
+    setSwipeOffset((previous) => ({ ...previous, [groupId]: -120 }));
 
     const itemIds = targetGroup.items.map((item) => item.id);
 
@@ -355,21 +382,33 @@ export default function OrdersPage() {
       .select("id");
 
     if (deleteError) {
+      setRemovingState(groupId, false);
+      setSwipeOffset((previous) => ({ ...previous, [groupId]: 0 }));
       setError("Kunne ikke annullere ordren.");
       return;
     }
 
     if (!deletedRows || deletedRows.length === 0) {
+      setRemovingState(groupId, false);
+      setSwipeOffset((previous) => ({ ...previous, [groupId]: 0 }));
       setError("Ordren kunne ikke slettes i databasen.");
       return;
     }
 
-    setGroupedOrders((previous) => previous.filter((order) => order.groupId !== groupId));
-    setSwipeOffset((previous) => {
-      const next = { ...previous };
-      delete next[groupId];
-      return next;
-    });
+    window.setTimeout(() => {
+      setGroupedOrders((previous) => previous.filter((order) => order.groupId !== groupId));
+      setSwipeOffset((previous) => {
+        const next = { ...previous };
+        delete next[groupId];
+        return next;
+      });
+      setIsDragging((previous) => {
+        const next = { ...previous };
+        delete next[groupId];
+        return next;
+      });
+      setRemovingState(groupId, false);
+    }, 260);
   };
 
   const handlePointerStart = (
@@ -383,8 +422,13 @@ export default function OrdersPage() {
       return;
     }
 
+    if (isRemoving[groupId]) {
+      return;
+    }
+
     activeSwipeRef.current = { groupId, pointerId };
     swipeStartXRef.current[groupId] = clientX;
+    setIsDragging((previous) => ({ ...previous, [groupId]: true }));
     if ("setPointerCapture" in target) {
       target.setPointerCapture(pointerId);
     }
@@ -397,6 +441,10 @@ export default function OrdersPage() {
     clientX: number
   ) => {
     if (!canCancel(status)) {
+      return;
+    }
+
+    if (isRemoving[groupId]) {
       return;
     }
 
@@ -425,12 +473,17 @@ export default function OrdersPage() {
       return;
     }
 
+    if (isRemoving[groupId]) {
+      return;
+    }
+
     const active = activeSwipeRef.current;
     if (!active || active.groupId !== groupId || active.pointerId !== pointerId) {
       return;
     }
 
     activeSwipeRef.current = null;
+    setIsDragging((previous) => ({ ...previous, [groupId]: false }));
 
     if ("releasePointerCapture" in target) {
       target.releasePointerCapture(pointerId);
@@ -480,11 +533,33 @@ export default function OrdersPage() {
       {groupedOrders.length === 0 ? (
         <p className="text-party-300">Ingen ordrer</p>
       ) : (
-        <div className="space-y-4">
-          {groupedOrders.map((order) => (
-            <div className="relative overflow-hidden rounded-xl" key={order.groupId}>
-              <div className="absolute inset-y-0 right-0 bg-party-700 text-party-100 px-4 flex items-center text-sm">
-                Annullér
+        <div>
+          {groupedOrders.map((order) => {
+            const offset = swipeOffset[order.groupId] ?? 0;
+            const progress = Math.min(1, Math.max(0, Math.abs(offset) / 100));
+            const removing = isRemoving[order.groupId] ?? false;
+
+            return (
+            <div
+              className={`grid overflow-hidden rounded-xl transition-all duration-300 ease-out ${
+                removing
+                  ? "grid-rows-[0fr] opacity-0 mb-0 -translate-y-1"
+                  : "grid-rows-[1fr] opacity-100 mb-4 translate-y-0"
+              }`}
+              key={order.groupId}
+            >
+              <div className="min-h-0">
+              <div className="relative overflow-hidden rounded-xl">
+              <div
+                className="absolute inset-y-0 right-0 bg-party-700 text-party-100 px-4 flex items-center justify-center text-2xl"
+                style={{
+                  opacity: removing ? 1 : progress,
+                  transform: `scale(${removing ? 1 : 0.84 + progress * 0.16})`,
+                  transition: "opacity 200ms ease, transform 200ms ease",
+                }}
+                aria-hidden="true"
+              >
+                🗑️
               </div>
               <article
                 className="card-float glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y"
@@ -507,8 +582,9 @@ export default function OrdersPage() {
                   handlePointerEnd(order.groupId, order.status, event.pointerId, event.currentTarget)
                 }
                 style={{
-                  transform: `translateX(${swipeOffset[order.groupId] ?? 0}px)`,
-                  transition: "transform 150ms ease",
+                  transform: `translateX(${offset}px)`,
+                  transition: isDragging[order.groupId] ? "none" : "transform 150ms ease",
+                  willChange: "transform",
                 }}
               >
                 <div>
@@ -529,7 +605,10 @@ export default function OrdersPage() {
                 </span>
               </article>
             </div>
-          ))}
+            </div>
+            </div>
+            );
+          })}
         </div>
       )}
 
