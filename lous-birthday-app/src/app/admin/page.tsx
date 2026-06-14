@@ -24,12 +24,26 @@ type RawOrderDrink = {
 
 type RawOrderRow = {
   id: string;
+  order_group_id: string;
   guest_name: string;
   quantity: number;
   note: string | null;
   status: OrderStatus;
   created_at: string;
   drinks: RawOrderDrink | RawOrderDrink[] | null;
+};
+
+type GroupedAdminOrder = {
+  groupId: string;
+  guest_name: string;
+  status: OrderStatus;
+  created_at: string;
+  items: {
+    id: string;
+    drinkName: string;
+    quantity: number;
+    note: string | null;
+  }[];
 };
 
 const DRINK_IMAGES_BUCKET = "drink-images";
@@ -64,7 +78,7 @@ export default function AdminPage() {
     const { data, error: ordersError } = await supabase
       .from("orders")
       .select(
-        "id,guest_name,quantity,note,status,created_at,drinks(id,name,price_dkk)"
+        "id,order_group_id,guest_name,quantity,note,status,created_at,drinks(id,name,price_dkk)"
       )
       .order("created_at", { ascending: false });
 
@@ -116,20 +130,57 @@ export default function AdminPage() {
   }, []);
 
   const grouped = useMemo(() => {
-    const active = orders.filter(
+    const groupedMap = new Map<string, GroupedAdminOrder>();
+
+    for (const order of orders) {
+      const key = order.order_group_id || order.id;
+      const existing = groupedMap.get(key);
+
+      if (existing) {
+        existing.items.push({
+          id: order.id,
+          drinkName: order.drinks?.name ?? "Ukendt drink",
+          quantity: order.quantity,
+          note: order.note,
+        });
+        continue;
+      }
+
+      groupedMap.set(key, {
+        groupId: key,
+        guest_name: order.guest_name,
+        status: order.status,
+        created_at: order.created_at,
+        items: [
+          {
+            id: order.id,
+            drinkName: order.drinks?.name ?? "Ukendt drink",
+            quantity: order.quantity,
+            note: order.note,
+          },
+        ],
+      });
+    }
+
+    const groupedOrders = Array.from(groupedMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    const active = groupedOrders.filter(
       (order) => order.status !== "delivered" && order.status !== "ready"
     );
-    const done = orders.filter(
+    const done = groupedOrders.filter(
       (order) => order.status === "delivered" || order.status === "ready"
     );
+
     return { active, done };
   }, [orders]);
 
-  const updateStatus = async (orderId: string, status: OrderStatus) => {
+  const updateStatus = async (orderGroupId: string, status: OrderStatus) => {
     const { error: updateError } = await supabase
       .from("orders")
       .update({ status })
-      .eq("id", orderId);
+      .eq("order_group_id", orderGroupId);
 
     if (updateError) {
       setError("Kunne ikke opdatere status.");
@@ -137,7 +188,9 @@ export default function AdminPage() {
     }
 
     setOrders((previous) =>
-      previous.map((order) => (order.id === orderId ? { ...order, status } : order))
+      previous.map((order) =>
+        order.order_group_id === orderGroupId ? { ...order, status } : order
+      )
     );
   };
 
@@ -248,14 +301,18 @@ export default function AdminPage() {
     setDrinks((previous) => previous.filter((currentDrink) => currentDrink.id !== drink.id));
   };
 
-  const renderOrderCard = (order: OrderWithDrink) => (
-    <article className="card-float glass-panel rounded-xl p-4" key={order.id}>
+  const renderOrderCard = (order: GroupedAdminOrder) => (
+    <article className="card-float glass-panel rounded-xl p-4" key={order.groupId}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="font-semibold text-party-100">{order.guest_name}</p>
-          <p>{order.drinks?.name ?? "Ukendt drink"}</p>
-          <p className="text-sm text-party-300">Antal: {order.quantity}</p>
-          {order.note ? <p className="text-sm text-party-300">Note: {order.note}</p> : null}
+          <div className="space-y-1 mt-2">
+            {order.items.map((item) => (
+              <p className="text-sm text-party-300" key={item.id}>
+                {item.quantity}x {item.drinkName}
+              </p>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-col items-end gap-2">
@@ -275,7 +332,7 @@ export default function AdminPage() {
 
           <select
             className="border border-party-700 bg-party-950/80 rounded-lg p-2"
-            onChange={(event) => updateStatus(order.id, event.target.value as OrderStatus)}
+            onChange={(event) => updateStatus(order.groupId, event.target.value as OrderStatus)}
             value={order.status}
           >
             {ORDER_STATUSES.map((statusOption) => (

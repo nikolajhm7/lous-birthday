@@ -88,8 +88,10 @@ export default function MenuPage() {
     }
 
     setSending(true);
+    const orderGroupId = crypto.randomUUID();
 
     const payload = entries.map(([drinkId, quantity]) => ({
+      order_group_id: orderGroupId,
       guest_name: nickname,
       drink_id: drinkId,
       quantity,

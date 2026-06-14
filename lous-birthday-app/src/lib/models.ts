@@ -12,6 +12,7 @@ export type Drink = {
 
 export type OrderWithDrink = {
   id: string;
+  order_group_id: string;
   guest_name: string;
   quantity: number;
   note: string | null;

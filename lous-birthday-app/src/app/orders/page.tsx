@@ -6,6 +6,7 @@ import { getOrderStatusLabel, OrderStatus } from "@/lib/models";
 
 type MyOrder = {
   id: string;
+  order_group_id: string;
   quantity: number;
   status: OrderStatus;
   created_at: string;
@@ -16,14 +17,26 @@ type MyOrder = {
 
 type RawMyOrderRow = {
   id: string;
+  order_group_id: string;
   quantity: number;
   status: OrderStatus;
   created_at: string;
   drinks: { name: string } | { name: string }[] | null;
 };
 
+type GroupedMyOrder = {
+  groupId: string;
+  status: OrderStatus;
+  created_at: string;
+  items: {
+    id: string;
+    quantity: number;
+    name: string;
+  }[];
+};
+
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<MyOrder[]>([]);
+  const [groupedOrders, setGroupedOrders] = useState<GroupedMyOrder[]>([]);
   const [nickname, setNickname] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +49,8 @@ export default function OrdersPage() {
       return null;
     });
   const previousStatusesRef = useRef<Record<string, OrderStatus>>({});
+  const swipeStartXRef = useRef<Record<string, number>>({});
+  const [swipeOffset, setSwipeOffset] = useState<Record<string, number>>({});
 
   const playBellSound = useCallback(() => {
     const AudioCtx = window.AudioContext || (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -68,7 +83,7 @@ export default function OrdersPage() {
     ring(1174, 0.18);
   }, []);
 
-  const notifyReadyOrder = useCallback(async (order: MyOrder) => {
+  const notifyReadyOrder = useCallback(async (order: GroupedMyOrder) => {
     playBellSound();
 
     if (notificationPermission !== "granted") {
@@ -76,13 +91,14 @@ export default function OrdersPage() {
     }
 
     const title = "🍹 Din drink er klar";
-    const body = `${order.drinks?.name ?? "Din bestilling"} er klar til afhentning`;
+    const firstDrink = order.items[0]?.name ?? "Din bestilling";
+    const body = `${firstDrink} er klar til afhentning`;
 
     if ("serviceWorker" in navigator) {
       const registration = await navigator.serviceWorker.ready;
       await registration.showNotification(title, {
         body,
-        tag: `order-ready-${order.id}`,
+        tag: `order-ready-${order.groupId}`,
       });
       return;
     }
@@ -90,11 +106,11 @@ export default function OrdersPage() {
     new Notification(title, { body });
   }, [notificationPermission, playBellSound]);
 
-  const syncAndNotifyReadyTransitions = useCallback((nextOrders: MyOrder[]) => {
+  const syncAndNotifyReadyTransitions = useCallback((nextOrders: GroupedMyOrder[]) => {
     const previousStatuses = previousStatusesRef.current;
 
     for (const order of nextOrders) {
-      const previousStatus = previousStatuses[order.id];
+      const previousStatus = previousStatuses[order.groupId];
 
       if (
         previousStatus &&
@@ -105,10 +121,10 @@ export default function OrdersPage() {
         void notifyReadyOrder(order);
       }
 
-      previousStatuses[order.id] = order.status;
+      previousStatuses[order.groupId] = order.status;
     }
 
-    const nextIds = new Set(nextOrders.map((order) => order.id));
+    const nextIds = new Set(nextOrders.map((order) => order.groupId));
     for (const orderId of Object.keys(previousStatuses)) {
       if (!nextIds.has(orderId)) {
         delete previousStatuses[orderId];
@@ -126,7 +142,7 @@ export default function OrdersPage() {
     const fetchOrders = async () => {
       const { data, error: fetchError } = await supabase
         .from("orders")
-        .select("id,quantity,status,created_at,drinks(name)")
+        .select("id,order_group_id,quantity,status,created_at,drinks(name)")
         .eq("guest_name", savedNickname)
         .order("created_at", { ascending: false });
 
@@ -141,8 +157,40 @@ export default function OrdersPage() {
         drinks: Array.isArray(row.drinks) ? (row.drinks[0] ?? null) : row.drinks,
       }));
 
-      syncAndNotifyReadyTransitions(normalizedOrders);
-      setOrders(normalizedOrders);
+      const groupedMap = new Map<string, GroupedMyOrder>();
+      for (const order of normalizedOrders) {
+        const key = order.order_group_id || order.id;
+        const existing = groupedMap.get(key);
+
+        if (existing) {
+          existing.items.push({
+            id: order.id,
+            quantity: order.quantity,
+            name: order.drinks?.name ?? "Ukendt drink",
+          });
+          continue;
+        }
+
+        groupedMap.set(key, {
+          groupId: key,
+          status: order.status,
+          created_at: order.created_at,
+          items: [
+            {
+              id: order.id,
+              quantity: order.quantity,
+              name: order.drinks?.name ?? "Ukendt drink",
+            },
+          ],
+        });
+      }
+
+      const groupedList = Array.from(groupedMap.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      syncAndNotifyReadyTransitions(groupedList);
+      setGroupedOrders(groupedList);
       setLoading(false);
     };
 
@@ -231,6 +279,65 @@ export default function OrdersPage() {
     return "border-party-300 bg-party-300/15 text-party-200";
   };
 
+  const canCancel = (status: OrderStatus) => status === "new" || status === "in_progress";
+
+  const cancelOrderGroup = async (groupId: string) => {
+    const { error: deleteError } = await supabase
+      .from("orders")
+      .delete()
+      .eq("order_group_id", groupId);
+
+    if (deleteError) {
+      setError("Kunne ikke annullere ordren.");
+      return;
+    }
+
+    setGroupedOrders((previous) => previous.filter((order) => order.groupId !== groupId));
+    setSwipeOffset((previous) => {
+      const next = { ...previous };
+      delete next[groupId];
+      return next;
+    });
+  };
+
+  const handleTouchStart = (groupId: string, clientX: number, status: OrderStatus) => {
+    if (!canCancel(status)) {
+      return;
+    }
+    swipeStartXRef.current[groupId] = clientX;
+  };
+
+  const handleTouchMove = (groupId: string, clientX: number, status: OrderStatus) => {
+    if (!canCancel(status)) {
+      return;
+    }
+
+    const startX = swipeStartXRef.current[groupId];
+    if (typeof startX !== "number") {
+      return;
+    }
+
+    const delta = clientX - startX;
+    const clamped = Math.max(-120, Math.min(0, delta));
+    setSwipeOffset((previous) => ({ ...previous, [groupId]: clamped }));
+  };
+
+  const handleTouchEnd = (groupId: string, status: OrderStatus) => {
+    if (!canCancel(status)) {
+      return;
+    }
+
+    const currentOffset = swipeOffset[groupId] ?? 0;
+    delete swipeStartXRef.current[groupId];
+
+    if (currentOffset <= -90) {
+      void cancelOrderGroup(groupId);
+      return;
+    }
+
+    setSwipeOffset((previous) => ({ ...previous, [groupId]: 0 }));
+  };
+
   return (
     <main className="app-shell min-h-screen p-8 pb-32 bg-party-950 text-party-100">
       <div className="app-content max-w-4xl mx-auto">
@@ -261,26 +368,47 @@ export default function OrdersPage() {
         <p className="text-sm text-emerald-200 mb-6">Notifikationer er aktive 🔔</p>
       )}
 
-      {orders.length === 0 ? (
+      {groupedOrders.length === 0 ? (
         <p className="text-party-300">Ingen ordrer</p>
       ) : (
         <div className="space-y-4">
-          {orders.map((order) => (
-            <article
-              className="card-float glass-panel rounded-xl p-4 flex items-center justify-between gap-4"
-              key={order.id}
-            >
-              <div>
-                <p className="font-semibold text-party-100">{order.drinks?.name ?? "Ukendt drink"}</p>
-                <p className="text-sm text-party-300">Antal: {order.quantity}</p>
+          {groupedOrders.map((order) => (
+            <div className="relative overflow-hidden rounded-xl" key={order.groupId}>
+              <div className="absolute inset-y-0 right-0 bg-party-700 text-party-100 px-4 flex items-center text-sm">
+                Annullér
               </div>
-
-              <span
-                className={`text-sm border rounded-full px-3 py-1 ${statusClass(order.status)}`}
+              <article
+                className="card-float glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y"
+                onTouchEnd={() => handleTouchEnd(order.groupId, order.status)}
+                onTouchMove={(event) =>
+                  handleTouchMove(order.groupId, event.touches[0].clientX, order.status)
+                }
+                onTouchStart={(event) =>
+                  handleTouchStart(order.groupId, event.touches[0].clientX, order.status)
+                }
+                style={{
+                  transform: `translateX(${swipeOffset[order.groupId] ?? 0}px)`,
+                  transition: "transform 150ms ease",
+                }}
               >
-                {getOrderStatusLabel(order.status)}
-              </span>
-            </article>
+                <div>
+                  {order.items.map((item) => (
+                    <p className="text-sm text-party-300" key={item.id}>
+                      {item.quantity}x {item.name}
+                    </p>
+                  ))}
+                  {canCancel(order.status) ? (
+                    <p className="text-xs text-party-300 mt-2">Swipe til venstre for at annullere</p>
+                  ) : null}
+                </div>
+
+                <span
+                  className={`text-sm border rounded-full px-3 py-1 ${statusClass(order.status)}`}
+                >
+                  {getOrderStatusLabel(order.status)}
+                </span>
+              </article>
+            </div>
           ))}
         </div>
       )}

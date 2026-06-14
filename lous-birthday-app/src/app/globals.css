@@ -50,6 +50,21 @@ h3 {
   overflow: hidden;
 }
 
+.app-shell::before {
+  content: "♥   ♥      ♥   ♥\A   ♥      ♥   ♥\A♥     ♥   ♥      ♥";
+  position: absolute;
+  inset: 0;
+  white-space: pre;
+  font-size: 20px;
+  line-height: 5.5rem;
+  letter-spacing: 2.5rem;
+  color: rgba(255, 179, 193, 0.16);
+  padding: 2.5rem;
+  pointer-events: none;
+  z-index: 0;
+  animation: heartsDrift 16s linear infinite;
+}
+
 .app-shell::after {
   content: "";
   position: absolute;
@@ -240,8 +255,21 @@ h3 {
   }
 }
 
+@keyframes heartsDrift {
+  0% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-8px) translateX(6px);
+  }
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .party-hero::before,
+  .app-shell::before,
   .party-blob,
   .party-card,
   .party-title,
@@ -270,6 +298,7 @@ h3 {
   }
 
   .app-shell::after,
+  .app-shell::before,
   .party-hero::before,
   .party-blob {
     display: none !important;

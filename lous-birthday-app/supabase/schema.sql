@@ -23,6 +23,7 @@ end $$;
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
+  order_group_id uuid not null default gen_random_uuid(),
   guest_name text not null,
   drink_id uuid not null references public.drinks(id),
   quantity integer not null default 1 check (quantity >= 1),
@@ -30,6 +31,8 @@ create table if not exists public.orders (
   status public.order_status not null default 'new',
   created_at timestamptz not null default now()
 );
+
+alter table public.orders add column if not exists order_group_id uuid not null default gen_random_uuid();
 
 do $$
 begin
