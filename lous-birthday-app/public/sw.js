@@ -1,4 +1,4 @@
-const CACHE_NAME = "lous-drinks-v2";
+const CACHE_NAME = "lous-drinks-v3";
 const APP_SHELL = ["/", "/orders", "/menu", "/admin", "/qr", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -42,6 +42,22 @@ self.addEventListener("fetch", (event) => {
         .catch(async () => {
           const cached = await caches.match(event.request);
           return cached ?? caches.match("/");
+        })
+    );
+    return;
+  }
+
+  if (requestUrl.pathname.startsWith("/_next/")) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          return cached ?? new Response(null, { status: 504, statusText: "Offline" });
         })
     );
     return;

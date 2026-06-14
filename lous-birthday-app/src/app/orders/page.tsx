@@ -622,7 +622,7 @@ export default function OrdersPage() {
                 🗑️
               </div>
               <article
-                className="card-float glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
+                className="swipe-card glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
                 onMouseDown={(event) => {
                   if (event.button !== 0) {
                     return;
@@ -680,6 +680,7 @@ export default function OrdersPage() {
                   userSelect: "none",
                   WebkitUserSelect: "none",
                   WebkitTouchCallout: "none",
+                  touchAction: "pan-y",
                   cursor: isDragging[order.groupId] ? "grabbing" : "grab",
                 }}
               >

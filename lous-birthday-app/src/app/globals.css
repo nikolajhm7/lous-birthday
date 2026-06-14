@@ -109,6 +109,13 @@ h3 {
   border-color: var(--party-700);
 }
 
+.swipe-card,
+.swipe-card * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .fade-up {
   animation: fadeUp 420ms ease both;
 }
