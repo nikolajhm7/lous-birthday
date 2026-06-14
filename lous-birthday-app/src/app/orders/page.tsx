@@ -341,13 +341,26 @@ export default function OrdersPage() {
   const canCancel = (status: OrderStatus) => status === "new" || status === "in_progress";
 
   const cancelOrderGroup = async (groupId: string) => {
-    const { error: deleteError } = await supabase
+    const targetGroup = groupedOrders.find((order) => order.groupId === groupId);
+    if (!targetGroup) {
+      return;
+    }
+
+    const itemIds = targetGroup.items.map((item) => item.id);
+
+    const { data: deletedRows, error: deleteError } = await supabase
       .from("orders")
       .delete()
-      .eq("order_group_id", groupId);
+      .in("id", itemIds)
+      .select("id");
 
     if (deleteError) {
       setError("Kunne ikke annullere ordren.");
+      return;
+    }
+
+    if (!deletedRows || deletedRows.length === 0) {
+      setError("Ordren kunne ikke slettes i databasen.");
       return;
     }
 

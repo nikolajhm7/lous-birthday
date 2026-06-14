@@ -148,6 +148,13 @@ to anon, authenticated
 using (true)
 with check (true);
 
+drop policy if exists "Public can delete orders" on public.orders;
+create policy "Public can delete orders"
+on public.orders
+for delete
+to anon, authenticated
+using (true);
+
 drop policy if exists "Public can insert push subscriptions" on public.push_subscriptions;
 create policy "Public can insert push subscriptions"
 on public.push_subscriptions
