@@ -1,9 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+type DeferredPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
 
 export default function Home() {
   const [nickname, setNickname] = useState("");
+  const [deferredPrompt, setDeferredPrompt] = useState<DeferredPromptEvent | null>(null);
+  const [showIosHint, setShowIosHint] = useState(false);
+
+  useEffect(() => {
+    const isIOS = /iPhone|iPad|iPod/i.test(window.navigator.userAgent);
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+    const timeoutId = window.setTimeout(() => {
+      setShowIosHint(isIOS && !isStandalone);
+    }, 0);
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setDeferredPrompt(event as DeferredPromptEvent);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) {
+      return;
+    }
+
+    await deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+  };
 
   const handleContinue = () => {
     const trimmed = nickname.trim();
@@ -39,6 +76,22 @@ export default function Home() {
         >
           Fortsæt
         </button>
+
+        {deferredPrompt ? (
+          <button
+            className="fancy-btn w-full mt-3 border border-party-700 text-party-100 py-3 rounded-lg font-semibold"
+            onClick={handleInstall}
+            type="button"
+          >
+            Installér app på telefon
+          </button>
+        ) : null}
+
+        {showIosHint ? (
+          <p className="text-xs text-party-300 mt-3">
+            iPhone: tryk Del-ikonet i Safari og vælg &quot;Føj til hjemmeskærm&quot;.
+          </p>
+        ) : null}
 
         <a className="block text-center text-sm text-party-300 mt-4 underline" href="/admin">
           Gå til admin

@@ -27,7 +27,7 @@ export default function QrPage() {
     <main className="app-shell min-h-screen p-6 bg-party-950 text-party-100">
       <div className="app-content max-w-3xl mx-auto">
         <div className="glass-panel rounded-2xl p-6 md:p-10">
-          <h1 className="text-3xl md:text-4xl font-bold mb-3">🎉 Scan og bestil drinks</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-3">🎉 Scan og bestil drinks 🎉</h1>
           <p className="text-party-300 mb-6">Scan QR-koden med kameraet for at åbne bestillingssiden.</p>
 
           <div className="bg-white rounded-2xl p-4 md:p-6 mb-5 mx-auto w-full max-w-xl">
