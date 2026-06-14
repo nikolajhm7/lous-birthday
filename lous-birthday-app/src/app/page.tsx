@@ -60,7 +60,7 @@ export default function Home() {
 
       <div className="party-card glass-panel p-8 rounded-2xl w-full max-w-md">
         <h1 className="party-title text-3xl font-bold text-center mb-6">
-          🍸 Velkommen 🍹
+          🍸 Velkommen 🍸
         </h1>
 
         <input
