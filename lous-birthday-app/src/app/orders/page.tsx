@@ -50,9 +50,13 @@ export default function OrdersPage() {
     });
   const previousStatusesRef = useRef<Record<string, OrderStatus>>({});
   const swipeStartXRef = useRef<Record<string, number>>({});
-  const activeSwipeRef = useRef<{ groupId: string; pointerId: number } | null>(null);
+  const activeSwipeRef = useRef<
+    { groupId: string; status: OrderStatus; input: "mouse" | "touch" } | null
+  >(null);
   const [swipeOffset, setSwipeOffset] = useState<Record<string, number>>({});
+  const swipeOffsetRef = useRef<Record<string, number>>({});
   const [isDragging, setIsDragging] = useState<Record<string, boolean>>({});
+  const [hasGlobalDrag, setHasGlobalDrag] = useState(false);
   const [isRemoving, setIsRemoving] = useState<Record<string, boolean>>({});
   const removingGroupsRef = useRef<Record<string, boolean>>({});
 
@@ -138,16 +142,15 @@ export default function OrdersPage() {
     ring(1174, 0.18);
   }, []);
 
-  const notifyReadyOrder = useCallback(async (order: GroupedMyOrder) => {
+  const notifyReadyOrder = useCallback(async (order: GroupedMyOrder, orderNumber: number) => {
     playBellSound();
 
     if (notificationPermission !== "granted") {
       return;
     }
 
-    const title = "🍹 Din drink er klar";
-    const firstDrink = order.items[0]?.name ?? "Din bestilling";
-    const body = `${firstDrink} er klar til afhentning`;
+    const title = "🍹 Klar til afhentning";
+    const body = `Din Ordre #${orderNumber} er klar til afhentning!`;
 
     if ("serviceWorker" in navigator) {
       const registration = await navigator.serviceWorker.ready;
@@ -163,6 +166,11 @@ export default function OrdersPage() {
 
   const syncAndNotifyReadyTransitions = useCallback((nextOrders: GroupedMyOrder[]) => {
     const previousStatuses = previousStatusesRef.current;
+    const orderNumbers = new Map(
+      [...nextOrders]
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        .map((order, index) => [order.groupId, index + 1])
+    );
 
     for (const order of nextOrders) {
       const previousStatus = previousStatuses[order.groupId];
@@ -173,7 +181,7 @@ export default function OrdersPage() {
         order.status === "ready" &&
         (previousStatus === "new" || previousStatus === "in_progress")
       ) {
-        void notifyReadyOrder(order);
+        void notifyReadyOrder(order, orderNumbers.get(order.groupId) ?? 1);
       }
 
       previousStatuses[order.groupId] = order.status;
@@ -305,10 +313,6 @@ export default function OrdersPage() {
     };
   }, [notificationPermission, subscribeForPush, syncAndNotifyReadyTransitions]);
 
-  if (loading) {
-    return <main className="min-h-screen p-8 bg-party-950 text-party-100">Henter ordrer...</main>;
-  }
-
   const requestNotifications = async () => {
     if (!("Notification" in window)) {
       setError("Notifikationer understøttes ikke i denne browser.");
@@ -345,7 +349,27 @@ export default function OrdersPage() {
 
   const canCancel = (status: OrderStatus) => status === "new" || status === "in_progress";
 
-  const setRemovingState = (groupId: string, removing: boolean) => {
+  useEffect(() => {
+    swipeOffsetRef.current = swipeOffset;
+  }, [swipeOffset]);
+
+  useEffect(() => {
+    if (!hasGlobalDrag) {
+      return;
+    }
+
+    const previousUserSelect = document.body.style.userSelect;
+    const previousCursor = document.body.style.cursor;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "grabbing";
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      document.body.style.cursor = previousCursor;
+    };
+  }, [hasGlobalDrag]);
+
+  const setRemovingState = useCallback((groupId: string, removing: boolean) => {
     if (removing) {
       removingGroupsRef.current[groupId] = true;
       setIsRemoving((previous) => ({ ...previous, [groupId]: true }));
@@ -358,9 +382,9 @@ export default function OrdersPage() {
       delete next[groupId];
       return next;
     });
-  };
+  }, []);
 
-  const cancelOrderGroup = async (groupId: string) => {
+  const cancelOrderGroup = useCallback(async (groupId: string) => {
     const targetGroup = groupedOrders.find((order) => order.groupId === groupId);
     if (!targetGroup) {
       return;
@@ -409,14 +433,13 @@ export default function OrdersPage() {
       });
       setRemovingState(groupId, false);
     }, 260);
-  };
+  }, [groupedOrders, isRemoving, setRemovingState]);
 
-  const handlePointerStart = (
+  const handleSwipeStart = (
     groupId: string,
     status: OrderStatus,
-    pointerId: number,
     clientX: number,
-    target: EventTarget & Element
+    input: "mouse" | "touch"
   ) => {
     if (!canCancel(status)) {
       return;
@@ -426,49 +449,29 @@ export default function OrdersPage() {
       return;
     }
 
-    activeSwipeRef.current = { groupId, pointerId };
+    activeSwipeRef.current = { groupId, status, input };
     swipeStartXRef.current[groupId] = clientX;
     setIsDragging((previous) => ({ ...previous, [groupId]: true }));
-    if ("setPointerCapture" in target) {
-      target.setPointerCapture(pointerId);
-    }
+    setHasGlobalDrag(true);
   };
 
-  const handlePointerMove = (
-    groupId: string,
-    status: OrderStatus,
-    pointerId: number,
-    clientX: number
-  ) => {
-    if (!canCancel(status)) {
-      return;
-    }
-
-    if (isRemoving[groupId]) {
-      return;
-    }
-
+  const handleSwipeMove = useCallback((clientX: number) => {
     const active = activeSwipeRef.current;
-    if (!active || active.groupId !== groupId || active.pointerId !== pointerId) {
+    if (!active) {
       return;
     }
 
-    const startX = swipeStartXRef.current[groupId];
+    const startX = swipeStartXRef.current[active.groupId];
     if (typeof startX !== "number") {
       return;
     }
 
     const delta = clientX - startX;
-    const clamped = Math.max(-120, Math.min(0, delta));
-    setSwipeOffset((previous) => ({ ...previous, [groupId]: clamped }));
-  };
+    const clamped = Math.max(-180, Math.min(0, delta));
+    setSwipeOffset((previous) => ({ ...previous, [active.groupId]: clamped }));
+  }, []);
 
-  const handlePointerEnd = (
-    groupId: string,
-    status: OrderStatus,
-    pointerId: number,
-    target: EventTarget & Element
-  ) => {
+  const handleSwipeEnd = useCallback((groupId: string, status: OrderStatus) => {
     if (!canCancel(status)) {
       return;
     }
@@ -477,19 +480,11 @@ export default function OrdersPage() {
       return;
     }
 
-    const active = activeSwipeRef.current;
-    if (!active || active.groupId !== groupId || active.pointerId !== pointerId) {
-      return;
-    }
-
     activeSwipeRef.current = null;
     setIsDragging((previous) => ({ ...previous, [groupId]: false }));
+    setHasGlobalDrag(false);
 
-    if ("releasePointerCapture" in target) {
-      target.releasePointerCapture(pointerId);
-    }
-
-    const currentOffset = swipeOffset[groupId] ?? 0;
+    const currentOffset = swipeOffsetRef.current[groupId] ?? 0;
     delete swipeStartXRef.current[groupId];
 
     if (currentOffset <= -90) {
@@ -498,7 +493,72 @@ export default function OrdersPage() {
     }
 
     setSwipeOffset((previous) => ({ ...previous, [groupId]: 0 }));
-  };
+  }, [cancelOrderGroup, isRemoving]);
+
+  useEffect(() => {
+    const handleWindowMouseMove = (event: MouseEvent) => {
+      const active = activeSwipeRef.current;
+      if (!active || active.input !== "mouse") {
+        return;
+      }
+
+      event.preventDefault();
+      handleSwipeMove(event.clientX);
+    };
+
+    const handleWindowMouseUp = (event: MouseEvent) => {
+      const active = activeSwipeRef.current;
+      if (!active || active.input !== "mouse") {
+        return;
+      }
+
+      event.preventDefault();
+      handleSwipeEnd(active.groupId, active.status);
+    };
+
+    const handleWindowTouchMove = (event: TouchEvent) => {
+      const active = activeSwipeRef.current;
+      if (!active || active.input !== "touch") {
+        return;
+      }
+
+      const touch = event.touches[0];
+      if (!touch) {
+        return;
+      }
+
+      event.preventDefault();
+      handleSwipeMove(touch.clientX);
+    };
+
+    const handleWindowTouchEnd = (event: TouchEvent) => {
+      const active = activeSwipeRef.current;
+      if (!active || active.input !== "touch") {
+        return;
+      }
+
+      event.preventDefault();
+      handleSwipeEnd(active.groupId, active.status);
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+    window.addEventListener("touchmove", handleWindowTouchMove, { passive: false });
+    window.addEventListener("touchend", handleWindowTouchEnd, { passive: false });
+    window.addEventListener("touchcancel", handleWindowTouchEnd, { passive: false });
+
+    return () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+      window.removeEventListener("touchmove", handleWindowTouchMove);
+      window.removeEventListener("touchend", handleWindowTouchEnd);
+      window.removeEventListener("touchcancel", handleWindowTouchEnd);
+    };
+  }, [handleSwipeEnd, handleSwipeMove]);
+
+  if (loading) {
+    return <main className="min-h-screen p-8 bg-party-950 text-party-100">Henter ordrer...</main>;
+  }
 
   return (
     <main className="app-shell min-h-screen p-8 pb-32 bg-party-950 text-party-100">
@@ -536,7 +596,7 @@ export default function OrdersPage() {
         <div>
           {groupedOrders.map((order) => {
             const offset = swipeOffset[order.groupId] ?? 0;
-            const progress = Math.min(1, Math.max(0, Math.abs(offset) / 100));
+            const progress = Math.min(1, Math.max(0, Math.abs(offset) / 140));
             const removing = isRemoving[order.groupId] ?? false;
 
             return (
@@ -562,29 +622,66 @@ export default function OrdersPage() {
                 🗑️
               </div>
               <article
-                className="card-float glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y"
-                onPointerDown={(event) =>
-                  handlePointerStart(
+                className="card-float glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
+                onMouseDown={(event) => {
+                  if (event.button !== 0) {
+                    return;
+                  }
+
+                  if (!canCancel(order.status) || isRemoving[order.groupId]) {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  handleSwipeStart(
                     order.groupId,
                     order.status,
-                    event.pointerId,
                     event.clientX,
-                    event.currentTarget
-                  )
-                }
-                onPointerMove={(event) =>
-                  handlePointerMove(order.groupId, order.status, event.pointerId, event.clientX)
-                }
-                onPointerUp={(event) =>
-                  handlePointerEnd(order.groupId, order.status, event.pointerId, event.currentTarget)
-                }
-                onPointerCancel={(event) =>
-                  handlePointerEnd(order.groupId, order.status, event.pointerId, event.currentTarget)
-                }
+                    "mouse"
+                  );
+                }}
+                onTouchStart={(event) => {
+                  const touch = event.touches[0];
+                  if (!touch) {
+                    return;
+                  }
+
+                  if (!canCancel(order.status) || isRemoving[order.groupId]) {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  handleSwipeStart(
+                    order.groupId,
+                    order.status,
+                    touch.clientX,
+                    "touch"
+                  );
+                }}
+                onMouseUp={(event) => {
+                  const active = activeSwipeRef.current;
+                  if (active && active.groupId === order.groupId && active.input === "mouse") {
+                    event.preventDefault();
+                    handleSwipeEnd(order.groupId, order.status);
+                  }
+                }}
+                onTouchEnd={(event) => {
+                  const active = activeSwipeRef.current;
+                  if (active && active.groupId === order.groupId && active.input === "touch") {
+                    event.preventDefault();
+                    handleSwipeEnd(order.groupId, order.status);
+                  }
+                }}
+                onSelectStart={(event) => event.preventDefault()}
+                onDragStart={(event) => event.preventDefault()}
                 style={{
                   transform: `translateX(${offset}px)`,
                   transition: isDragging[order.groupId] ? "none" : "transform 150ms ease",
                   willChange: "transform",
+                  userSelect: "none",
+                  WebkitUserSelect: "none",
+                  WebkitTouchCallout: "none",
+                  cursor: isDragging[order.groupId] ? "grabbing" : "grab",
                 }}
               >
                 <div>

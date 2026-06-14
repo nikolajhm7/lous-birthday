@@ -6,6 +6,8 @@ type NotifyPayload = {
   guestName: string;
   title: string;
   body: string;
+  tag?: string;
+  url?: string;
 };
 
 type DbSubscription = {
@@ -68,7 +70,8 @@ export async function POST(request: Request) {
           JSON.stringify({
             title: payload.title,
             body: payload.body,
-            url: "/orders",
+            tag: payload.tag,
+            url: payload.url ?? "/orders",
           })
         );
       } catch (sendError) {

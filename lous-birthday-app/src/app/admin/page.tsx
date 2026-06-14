@@ -177,6 +177,10 @@ export default function AdminPage() {
   }, [orders]);
 
   const updateStatus = async (orderGroupId: string, status: OrderStatus) => {
+    const allGroupedOrders = grouped.active.concat(grouped.done);
+    const targetOrder = allGroupedOrders.find((order) => order.groupId === orderGroupId);
+    const previousStatus = targetOrder?.status;
+
     const { error: updateError } = await supabase
       .from("orders")
       .update({ status })
@@ -193,32 +197,33 @@ export default function AdminPage() {
       )
     );
 
-    if (status === "ready") {
-      const targetOrder = grouped.active
-        .concat(grouped.done)
-        .find((order) => order.groupId === orderGroupId);
+    if (status === "ready" && previousStatus && previousStatus !== "ready" && targetOrder) {
+      const guestOrderNumbers = allGroupedOrders
+        .filter((order) => order.guest_name === targetOrder.guest_name)
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-      if (targetOrder) {
-        const firstDrink = targetOrder.items[0]?.drinkName ?? "Din bestilling";
+      const orderIndex = guestOrderNumbers.findIndex((order) => order.groupId === orderGroupId);
+      const orderNumber = orderIndex >= 0 ? orderIndex + 1 : 1;
 
-        const response = await fetch("/api/push/notify", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            guestName: targetOrder.guest_name,
-            title: "🍹 Din drink er klar",
-            body: `${firstDrink} er klar til afhentning`,
-          }),
-        });
+      const response = await fetch("/api/push/notify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          guestName: targetOrder.guest_name,
+          title: "🍹 Klar til afhentning",
+          body: `Din Ordre #${orderNumber} er klar til afhentning!`,
+          tag: `order-ready-${orderGroupId}`,
+          url: "/orders",
+        }),
+      });
 
-        if (!response.ok) {
-          const result = (await response.json().catch(() => null)) as
-            | { error?: string; sent?: number }
-            | null;
-          setError(result?.error ?? "Push-notifikation kunne ikke sendes.");
-        }
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as
+          | { error?: string; sent?: number }
+          | null;
+        setError(result?.error ?? "Push-notifikation kunne ikke sendes.");
       }
     }
   };
