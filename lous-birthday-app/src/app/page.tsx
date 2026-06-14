@@ -65,7 +65,7 @@ export default function Home() {
 
         <input
           className="w-full border border-party-700 bg-party-950/80 text-party-100 rounded-lg p-3 mb-4"
-          placeholder="Dit nickname"
+          placeholder="Dit navn"
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
         />
