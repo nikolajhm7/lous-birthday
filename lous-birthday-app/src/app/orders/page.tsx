@@ -672,7 +672,6 @@ export default function OrdersPage() {
                     handleSwipeEnd(order.groupId, order.status);
                   }
                 }}
-                onSelectStart={(event) => event.preventDefault()}
                 onDragStart={(event) => event.preventDefault()}
                 style={{
                   transform: `translateX(${offset}px)`,
