@@ -92,10 +92,6 @@ export default function Home() {
             iPhone: tryk Del-ikonet i Safari og vælg &quot;Føj til hjemmeskærm&quot;.
           </p>
         ) : null}
-
-        <a className="block text-center text-sm text-party-300 mt-4 underline" href="/admin">
-          Gå til admin
-        </a>
       </div>
     </main>
   );

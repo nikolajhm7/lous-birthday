@@ -1,4 +1,4 @@
-const CACHE_NAME = "lous-drinks-v1";
+const CACHE_NAME = "lous-drinks-v2";
 const APP_SHELL = ["/", "/orders", "/menu", "/admin", "/qr", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -24,8 +24,36 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  const requestUrl = new URL(event.request.url);
+  const isSameOrigin = requestUrl.origin === self.location.origin;
+
+  if (!isSameOrigin) {
+    return;
+  }
+
   if (event.request.mode === "navigate") {
-    event.respondWith(fetch(event.request).catch(() => caches.match("/")));
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          return cached ?? caches.match("/");
+        })
+    );
+    return;
+  }
+
+  const isStaticAsset =
+    event.request.destination === "script" ||
+    event.request.destination === "style" ||
+    event.request.destination === "image" ||
+    event.request.destination === "font";
+
+  if (!isStaticAsset) {
     return;
   }
 

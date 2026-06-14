@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/app/supabase";
 import { getOrderStatusLabel, OrderStatus } from "@/lib/models";
 
@@ -28,6 +28,93 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermission | null>(() => {
+      if (typeof window !== "undefined" && "Notification" in window) {
+        return Notification.permission;
+      }
+      return null;
+    });
+  const previousStatusesRef = useRef<Record<string, OrderStatus>>({});
+
+  const playBellSound = useCallback(() => {
+    const AudioCtx = window.AudioContext || (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+    if (!AudioCtx) {
+      return;
+    }
+
+    const context = new AudioCtx();
+    const now = context.currentTime;
+
+    const ring = (frequency: number, offset: number) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+
+      oscillator.type = "triangle";
+      oscillator.frequency.setValueAtTime(frequency, now + offset);
+      gain.gain.setValueAtTime(0.0001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.15, now + offset + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.45);
+
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+
+      oscillator.start(now + offset);
+      oscillator.stop(now + offset + 0.5);
+    };
+
+    ring(880, 0);
+    ring(1174, 0.18);
+  }, []);
+
+  const notifyReadyOrder = useCallback(async (order: MyOrder) => {
+    playBellSound();
+
+    if (notificationPermission !== "granted") {
+      return;
+    }
+
+    const title = "🍹 Din drink er klar";
+    const body = `${order.drinks?.name ?? "Din bestilling"} er klar til afhentning`;
+
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, {
+        body,
+        tag: `order-ready-${order.id}`,
+      });
+      return;
+    }
+
+    new Notification(title, { body });
+  }, [notificationPermission, playBellSound]);
+
+  const syncAndNotifyReadyTransitions = useCallback((nextOrders: MyOrder[]) => {
+    const previousStatuses = previousStatusesRef.current;
+
+    for (const order of nextOrders) {
+      const previousStatus = previousStatuses[order.id];
+
+      if (
+        previousStatus &&
+        previousStatus !== "ready" &&
+        order.status === "ready" &&
+        (previousStatus === "new" || previousStatus === "in_progress")
+      ) {
+        void notifyReadyOrder(order);
+      }
+
+      previousStatuses[order.id] = order.status;
+    }
+
+    const nextIds = new Set(nextOrders.map((order) => order.id));
+    for (const orderId of Object.keys(previousStatuses)) {
+      if (!nextIds.has(orderId)) {
+        delete previousStatuses[orderId];
+      }
+    }
+  }, [notifyReadyOrder]);
 
   useEffect(() => {
     const savedNickname = localStorage.getItem("nickname")?.trim() ?? "";
@@ -54,6 +141,7 @@ export default function OrdersPage() {
         drinks: Array.isArray(row.drinks) ? (row.drinks[0] ?? null) : row.drinks,
       }));
 
+      syncAndNotifyReadyTransitions(normalizedOrders);
       setOrders(normalizedOrders);
       setLoading(false);
     };
@@ -83,15 +171,52 @@ export default function OrdersPage() {
         setIsLive(status === "SUBSCRIBED");
       });
 
+    const intervalId = window.setInterval(() => {
+      void fetchOrders();
+    }, 8000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void fetchOrders();
+      }
+    };
+
+    const handleFocus = () => {
+      void fetchOrders();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
     return () => {
       window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [syncAndNotifyReadyTransitions]);
 
   if (loading) {
     return <main className="min-h-screen p-8 bg-party-950 text-party-100">Henter ordrer...</main>;
   }
+
+  const requestNotifications = async () => {
+    if (!("Notification" in window)) {
+      setError("Notifikationer understøttes ikke i denne browser.");
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+
+    if (permission !== "granted") {
+      setError("Notifikationer blev ikke tilladt.");
+      return;
+    }
+
+    setError(null);
+  };
 
   const statusClass = (status: OrderStatus) => {
     if (status === "new") {
@@ -123,6 +248,18 @@ export default function OrdersPage() {
       </div>
       {nickname ? <p className="text-party-300 mb-8">Hej {nickname}</p> : null}
       {error ? <p className="mb-4 text-party-300">{error}</p> : null}
+
+      {notificationPermission !== "granted" ? (
+        <button
+          className="fancy-btn border border-party-700 rounded-lg px-4 py-2 mb-6"
+          onClick={requestNotifications}
+          type="button"
+        >
+          Aktivér notifikationer
+        </button>
+      ) : (
+        <p className="text-sm text-emerald-200 mb-6">Notifikationer er aktive 🔔</p>
+      )}
 
       {orders.length === 0 ? (
         <p className="text-party-300">Ingen ordrer</p>
