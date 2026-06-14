@@ -192,6 +192,28 @@ export default function AdminPage() {
         order.order_group_id === orderGroupId ? { ...order, status } : order
       )
     );
+
+    if (status === "ready") {
+      const targetOrder = grouped.active
+        .concat(grouped.done)
+        .find((order) => order.groupId === orderGroupId);
+
+      if (targetOrder) {
+        const firstDrink = targetOrder.items[0]?.drinkName ?? "Din bestilling";
+
+        await fetch("/api/push/notify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            guestName: targetOrder.guest_name,
+            title: "🍹 Din drink er klar",
+            body: `${firstDrink} er klar til afhentning`,
+          }),
+        });
+      }
+    }
   };
 
   const handleCreateDrink = async (event: FormEvent<HTMLFormElement>) => {

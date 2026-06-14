@@ -52,6 +52,57 @@ export default function OrdersPage() {
   const swipeStartXRef = useRef<Record<string, number>>({});
   const [swipeOffset, setSwipeOffset] = useState<Record<string, number>>({});
 
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let index = 0; index < rawData.length; ++index) {
+      outputArray[index] = rawData.charCodeAt(index);
+    }
+
+    return outputArray;
+  };
+
+  const subscribeForPush = useCallback(async (guestName: string) => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      return;
+    }
+
+    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidPublicKey) {
+      return;
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    const existingSubscription = await registration.pushManager.getSubscription();
+    const subscription =
+      existingSubscription ||
+      (await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      }));
+
+    const keys = subscription.toJSON().keys;
+    if (!keys?.p256dh || !keys.auth) {
+      return;
+    }
+
+    await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        guestName,
+        endpoint: subscription.endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+      }),
+    });
+  }, []);
+
   const playBellSound = useCallback(() => {
     const AudioCtx = window.AudioContext || (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 
@@ -196,6 +247,9 @@ export default function OrdersPage() {
 
     const timeoutId = window.setTimeout(() => {
       setNickname(savedNickname);
+      if (notificationPermission === "granted") {
+        void subscribeForPush(savedNickname);
+      }
       void fetchOrders();
     }, 0);
 
@@ -243,7 +297,7 @@ export default function OrdersPage() {
       window.removeEventListener("focus", handleFocus);
       supabase.removeChannel(channel);
     };
-  }, [syncAndNotifyReadyTransitions]);
+  }, [notificationPermission, subscribeForPush, syncAndNotifyReadyTransitions]);
 
   if (loading) {
     return <main className="min-h-screen p-8 bg-party-950 text-party-100">Henter ordrer...</main>;
@@ -261,6 +315,10 @@ export default function OrdersPage() {
     if (permission !== "granted") {
       setError("Notifikationer blev ikke tilladt.");
       return;
+    }
+
+    if (nickname) {
+      await subscribeForPush(nickname);
     }
 
     setError(null);
