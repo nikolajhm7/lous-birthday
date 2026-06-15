@@ -282,15 +282,30 @@ h3 {
 }
 
 .menu-order-dock {
-  z-index: 120;
+  z-index: 9999;
   background: var(--party-950);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
+  will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
+  contain: paint;
+  pointer-events: auto;
+  padding-bottom: 0.45rem;
+}
+
+.menu-order-dock::after {
+  content: "";
+  position: absolute;
+  left: -14vw;
+  right: -14vw;
+  bottom: -36svh;
+  height: 36svh;
+  background: var(--party-950);
+  z-index: -1;
+  pointer-events: none;
 }
 
 .menu-order-dock .menu-cart-submit {
@@ -810,14 +825,14 @@ h3 {
   }
 
   .menu-order-dock {
-    z-index: 120;
+    z-index: 9999;
     left: max(0.5rem, env(safe-area-inset-left));
     right: max(0.5rem, env(safe-area-inset-right));
-    bottom: max(0.4rem, env(safe-area-inset-bottom));
+    bottom: calc(env(safe-area-inset-bottom) + 0.78rem);
     border: 1px solid rgba(164, 19, 60, 0.72);
     border-radius: 0.95rem;
     box-shadow: 0 12px 26px rgba(0, 0, 0, 0.34);
-    padding-bottom: 0.7rem;
+    padding-bottom: 0.5rem;
   }
 
   .menu-cart-submit {

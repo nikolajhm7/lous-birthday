@@ -146,6 +146,7 @@ export default function MenuPage() {
   }
 
   return (
+    <>
     <main className="app-shell orders-shell min-h-screen p-8 pb-44 bg-party-950 text-party-100">
       <div className="app-content max-w-4xl mx-auto">
       <h1 className="fade-up text-4xl font-bold mb-8">🍹 Menukort</h1>
@@ -245,32 +246,33 @@ export default function MenuPage() {
         })}
       </div>
 
-      {totalItems > 0 ? (
-        <div className="menu-order-dock floating-bar bottom-bar-fixed p-4 bg-party-950 border-t border-party-800">
-          <div className="max-w-4xl mx-auto cart-bar-wrap">
-            <div className="cart-summary-block">
-              <p className="font-semibold">{totalItems} drink{totalItems > 1 ? "s" : ""} i kurven</p>
-              <ul className="cart-items-list" aria-label="Varer i kurv">
-                {cartItems.map((item) => (
-                  <li className="cart-item-chip" key={item.id}>
-                    <span className="cart-item-qty">{item.quantity}x</span>
-                    <span>{item.name}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <button
-              className="fancy-btn menu-cart-submit bg-party-600 text-party-950 rounded-lg px-5 py-3 font-semibold disabled:opacity-70 whitespace-nowrap"
-              disabled={sending}
-              onClick={handleSubmitOrder}
-              type="button"
-            >
-              {sending ? "Sender..." : "Send bestilling"}
-            </button>
-          </div>
-        </div>
-      ) : null}
       </div>
     </main>
+    {totalItems > 0 ? (
+      <div className="menu-order-dock floating-bar bottom-bar-fixed p-4 bg-party-950 border-t border-party-800">
+        <div className="max-w-4xl mx-auto cart-bar-wrap">
+          <div className="cart-summary-block">
+            <p className="font-semibold">{totalItems} drink{totalItems > 1 ? "s" : ""} i kurven</p>
+            <ul className="cart-items-list" aria-label="Varer i kurv">
+              {cartItems.map((item) => (
+                <li className="cart-item-chip" key={item.id}>
+                  <span className="cart-item-qty">{item.quantity}x</span>
+                  <span>{item.name}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <button
+            className="fancy-btn menu-cart-submit bg-party-600 text-party-950 rounded-lg px-5 py-3 font-semibold disabled:opacity-70 whitespace-nowrap"
+            disabled={sending}
+            onClick={handleSubmitOrder}
+            type="button"
+          >
+            {sending ? "Sender..." : "Send bestilling"}
+          </button>
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }
