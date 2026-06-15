@@ -367,6 +367,24 @@ h3 {
   -webkit-touch-callout: none;
 }
 
+.swipe-card-shell {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  contain: paint;
+}
+
+.orders-fixed-action {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateZ(0);
+  z-index: 9999;
+  isolation: isolate;
+  pointer-events: auto;
+}
+
 .fade-up {
   animation: fadeUp 420ms ease both;
 }
