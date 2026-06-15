@@ -173,7 +173,7 @@ export default function OrdersPage() {
     }
 
     const title = "🍹 Klar til afhentning";
-    const body = `Din Ordre #${orderNumber} er klar til afhentning!`;
+    const body = `Ordre #${orderNumber} er klar til afhentning!`;
 
     if ("serviceWorker" in navigator) {
       const registration = await navigator.serviceWorker.ready;
@@ -436,6 +436,7 @@ export default function OrdersPage() {
   };
 
   const canCancel = (status: OrderStatus) => status === "new" || status === "in_progress";
+  const isCurrentOrder = (status: OrderStatus) => status === "new" || status === "in_progress";
 
   useEffect(() => {
     swipeOffsetRef.current = swipeOffset;
@@ -649,7 +650,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <main className="app-shell min-h-screen p-8 pb-32 bg-party-950 text-party-100">
+    <main className="app-shell min-h-screen p-8 pb-28 bg-party-950 text-party-100">
       <div className="app-content max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-4 mb-2">
         <h1 className="fade-up text-4xl font-bold">📋 Dine ordrer</h1>
@@ -719,147 +720,296 @@ export default function OrdersPage() {
       {groupedOrders.length === 0 ? (
         <p className="text-party-300">Ingen ordrer</p>
       ) : (
-        <div className="stagger-list">
-          {groupedOrders.map((order) => {
-            const offset = swipeOffset[order.groupId] ?? 0;
-            const swipeProgress = Math.min(1, Math.max(0, Math.abs(offset) / 180));
-            const removing = isRemoving[order.groupId] ?? false;
+        <>
+          <section className="mb-8">
+            <h2 className="text-xl font-semibold mb-3">Nuværende ordrer</h2>
+            <div className="stagger-list">
+              {groupedOrders.filter((order) => isCurrentOrder(order.status)).length === 0 ? (
+                <p className="text-party-300">Ingen nuværende ordrer.</p>
+              ) : (
+                groupedOrders
+                  .filter((order) => isCurrentOrder(order.status))
+                  .map((order) => {
+                    const offset = swipeOffset[order.groupId] ?? 0;
+                    const swipeProgress = Math.min(1, Math.max(0, Math.abs(offset) / 180));
+                    const removing = isRemoving[order.groupId] ?? false;
 
-            return (
-            <div
-              className={`grid overflow-hidden rounded-xl transition-all duration-300 ease-out ${
-                removing
-                  ? "grid-rows-[0fr] opacity-0 mb-0 -translate-y-1"
-                  : "grid-rows-[1fr] opacity-100 mb-4 translate-y-0"
-              }`}
-              key={order.groupId}
-            >
-              <div className="min-h-0">
-              <div className="relative overflow-hidden rounded-xl">
-              <div
-                className="absolute inset-0 bg-party-700 text-party-100 pr-5 flex items-center justify-end"
-                style={{
-                  opacity: removing ? 1 : offset < 0 ? 0.2 + swipeProgress * 0.8 : 0,
-                  transform: "scale(1)",
-                  transition: "opacity 90ms linear",
-                }}
-                aria-hidden="true"
-              >
-                <span className="trash-icon-wrap">
-                  <svg
-                    aria-hidden="true"
-                    className="trash-icon"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M9 3.75h6M10.5 3.75h3a1.5 1.5 0 0 1 1.5 1.5v.75h4.5m-15 0H6m12 0-1.05 12.08a2.25 2.25 0 0 1-2.24 2.05H9.29a2.25 2.25 0 0 1-2.24-2.05L6 6m4.5 3.75v6.75m3-6.75v6.75"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="1.8"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <article
-                className="swipe-card glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
-                onMouseDown={(event) => {
-                  if (event.button !== 0) {
-                    return;
-                  }
+                    return (
+                      <div
+                        className={`grid overflow-hidden rounded-xl transition-all duration-300 ease-out ${
+                          removing
+                            ? "grid-rows-[0fr] opacity-0 mb-0 -translate-y-1"
+                            : "grid-rows-[1fr] opacity-100 mb-4 translate-y-0"
+                        }`}
+                        key={order.groupId}
+                      >
+                        <div className="min-h-0">
+                          <div className="relative overflow-hidden rounded-xl">
+                            <div
+                              className="absolute inset-0 bg-party-700 text-party-100 pr-5 flex items-center justify-end"
+                              style={{
+                                opacity: removing ? 1 : offset < 0 ? 0.2 + swipeProgress * 0.8 : 0,
+                                transform: "scale(1)",
+                                transition: "opacity 90ms linear",
+                              }}
+                              aria-hidden="true"
+                            >
+                              <span className="trash-icon-wrap">
+                                <svg
+                                  aria-hidden="true"
+                                  className="trash-icon"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M9 3.75h6M10.5 3.75h3a1.5 1.5 0 0 1 1.5 1.5v.75h4.5m-15 0H6m12 0-1.05 12.08a2.25 2.25 0 0 1-2.24 2.05H9.29a2.25 2.25 0 0 1-2.24-2.05L6 6m4.5 3.75v6.75m3-6.75v6.75"
+                                    stroke="currentColor"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="1.8"
+                                  />
+                                </svg>
+                              </span>
+                            </div>
+                            <article
+                              className="swipe-card glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
+                              onMouseDown={(event) => {
+                                if (event.button !== 0) {
+                                  return;
+                                }
 
-                  if (!canCancel(order.status) || isRemoving[order.groupId]) {
-                    return;
-                  }
+                                if (!canCancel(order.status) || isRemoving[order.groupId]) {
+                                  return;
+                                }
 
-                  event.preventDefault();
-                  handleSwipeStart(
-                    order.groupId,
-                    order.status,
-                    event.clientX,
-                    "mouse"
-                  );
-                }}
-                onTouchStart={(event) => {
-                  const touch = event.touches[0];
-                  if (!touch) {
-                    return;
-                  }
+                                event.preventDefault();
+                                handleSwipeStart(
+                                  order.groupId,
+                                  order.status,
+                                  event.clientX,
+                                  "mouse"
+                                );
+                              }}
+                              onTouchStart={(event) => {
+                                const touch = event.touches[0];
+                                if (!touch) {
+                                  return;
+                                }
 
-                  if (!canCancel(order.status) || isRemoving[order.groupId]) {
-                    return;
-                  }
+                                if (!canCancel(order.status) || isRemoving[order.groupId]) {
+                                  return;
+                                }
 
-                  event.preventDefault();
-                  handleSwipeStart(
-                    order.groupId,
-                    order.status,
-                    touch.clientX,
-                    "touch"
-                  );
-                }}
-                onMouseUp={(event) => {
-                  const active = activeSwipeRef.current;
-                  if (active && active.groupId === order.groupId && active.input === "mouse") {
-                    event.preventDefault();
-                    handleSwipeEnd(order.groupId, order.status);
-                  }
-                }}
-                onTouchEnd={(event) => {
-                  const active = activeSwipeRef.current;
-                  if (active && active.groupId === order.groupId && active.input === "touch") {
-                    event.preventDefault();
-                    handleSwipeEnd(order.groupId, order.status);
-                  }
-                }}
-                onDragStart={(event) => event.preventDefault()}
-                style={{
-                  transform: `translateX(${offset}px)`,
-                  transition: isDragging[order.groupId] ? "none" : "transform 150ms ease",
-                  willChange: "transform",
-                  userSelect: "none",
-                  WebkitUserSelect: "none",
-                  WebkitTouchCallout: "none",
-                  touchAction: "pan-y",
-                  cursor: isDragging[order.groupId] ? "grabbing" : "grab",
-                }}
-              >
-                <div>
-                  {order.items.map((item) => (
-                    <p className="text-sm text-party-300" key={item.id}>
-                      {item.quantity}x {item.name}
-                    </p>
-                  ))}
-                  {canCancel(order.status) ? (
-                    <p className="text-xs text-party-300 mt-2">Swipe til venstre for at annullere</p>
-                  ) : null}
-                </div>
+                                event.preventDefault();
+                                handleSwipeStart(
+                                  order.groupId,
+                                  order.status,
+                                  touch.clientX,
+                                  "touch"
+                                );
+                              }}
+                              onMouseUp={(event) => {
+                                const active = activeSwipeRef.current;
+                                if (active && active.groupId === order.groupId && active.input === "mouse") {
+                                  event.preventDefault();
+                                  handleSwipeEnd(order.groupId, order.status);
+                                }
+                              }}
+                              onTouchEnd={(event) => {
+                                const active = activeSwipeRef.current;
+                                if (active && active.groupId === order.groupId && active.input === "touch") {
+                                  event.preventDefault();
+                                  handleSwipeEnd(order.groupId, order.status);
+                                }
+                              }}
+                              onDragStart={(event) => event.preventDefault()}
+                              style={{
+                                transform: `translateX(${offset}px)`,
+                                transition: isDragging[order.groupId] ? "none" : "transform 150ms ease",
+                                willChange: "transform",
+                                userSelect: "none",
+                                WebkitUserSelect: "none",
+                                WebkitTouchCallout: "none",
+                                touchAction: "pan-y",
+                                cursor: isDragging[order.groupId] ? "grabbing" : "grab",
+                              }}
+                            >
+                              <div>
+                                {order.items.map((item) => (
+                                  <p className="text-sm text-party-300" key={item.id}>
+                                    {item.quantity}x {item.name}
+                                  </p>
+                                ))}
+                                {canCancel(order.status) ? (
+                                  <p className="text-xs text-party-300 mt-2">Swipe til venstre for at annullere</p>
+                                ) : null}
+                              </div>
 
-                <span
-                  className={`text-sm border rounded-full px-3 py-1 ${statusClass(order.status)}`}
-                >
-                  {getOrderStatusLabel(order.status)}
-                </span>
-              </article>
+                              <span
+                                className={`text-sm border rounded-full px-3 py-1 ${statusClass(order.status)}`}
+                              >
+                                {getOrderStatusLabel(order.status)}
+                              </span>
+                            </article>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
             </div>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold mb-3">Forrige ordrer</h2>
+            <div className="stagger-list">
+              {groupedOrders.filter((order) => !isCurrentOrder(order.status)).length === 0 ? (
+                <p className="text-party-300">Ingen forrige ordrer.</p>
+              ) : (
+                groupedOrders
+                  .filter((order) => !isCurrentOrder(order.status))
+                  .map((order) => {
+                    const offset = swipeOffset[order.groupId] ?? 0;
+                    const swipeProgress = Math.min(1, Math.max(0, Math.abs(offset) / 180));
+                    const removing = isRemoving[order.groupId] ?? false;
+
+                    return (
+                      <div
+                        className={`grid overflow-hidden rounded-xl transition-all duration-300 ease-out ${
+                          removing
+                            ? "grid-rows-[0fr] opacity-0 mb-0 -translate-y-1"
+                            : "grid-rows-[1fr] opacity-100 mb-4 translate-y-0"
+                        }`}
+                        key={order.groupId}
+                      >
+                        <div className="min-h-0">
+                          <div className="relative overflow-hidden rounded-xl">
+                            <div
+                              className="absolute inset-0 bg-party-700 text-party-100 pr-5 flex items-center justify-end"
+                              style={{
+                                opacity: removing ? 1 : offset < 0 ? 0.2 + swipeProgress * 0.8 : 0,
+                                transform: "scale(1)",
+                                transition: "opacity 90ms linear",
+                              }}
+                              aria-hidden="true"
+                            >
+                              <span className="trash-icon-wrap">
+                                <svg
+                                  aria-hidden="true"
+                                  className="trash-icon"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M9 3.75h6M10.5 3.75h3a1.5 1.5 0 0 1 1.5 1.5v.75h4.5m-15 0H6m12 0-1.05 12.08a2.25 2.25 0 0 1-2.24 2.05H9.29a2.25 2.25 0 0 1-2.24-2.05L6 6m4.5 3.75v6.75m3-6.75v6.75"
+                                    stroke="currentColor"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="1.8"
+                                  />
+                                </svg>
+                              </span>
+                            </div>
+                            <article
+                              className="swipe-card glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
+                              onMouseDown={(event) => {
+                                if (event.button !== 0) {
+                                  return;
+                                }
+
+                                if (!canCancel(order.status) || isRemoving[order.groupId]) {
+                                  return;
+                                }
+
+                                event.preventDefault();
+                                handleSwipeStart(
+                                  order.groupId,
+                                  order.status,
+                                  event.clientX,
+                                  "mouse"
+                                );
+                              }}
+                              onTouchStart={(event) => {
+                                const touch = event.touches[0];
+                                if (!touch) {
+                                  return;
+                                }
+
+                                if (!canCancel(order.status) || isRemoving[order.groupId]) {
+                                  return;
+                                }
+
+                                event.preventDefault();
+                                handleSwipeStart(
+                                  order.groupId,
+                                  order.status,
+                                  touch.clientX,
+                                  "touch"
+                                );
+                              }}
+                              onMouseUp={(event) => {
+                                const active = activeSwipeRef.current;
+                                if (active && active.groupId === order.groupId && active.input === "mouse") {
+                                  event.preventDefault();
+                                  handleSwipeEnd(order.groupId, order.status);
+                                }
+                              }}
+                              onTouchEnd={(event) => {
+                                const active = activeSwipeRef.current;
+                                if (active && active.groupId === order.groupId && active.input === "touch") {
+                                  event.preventDefault();
+                                  handleSwipeEnd(order.groupId, order.status);
+                                }
+                              }}
+                              onDragStart={(event) => event.preventDefault()}
+                              style={{
+                                transform: `translateX(${offset}px)`,
+                                transition: isDragging[order.groupId] ? "none" : "transform 150ms ease",
+                                willChange: "transform",
+                                userSelect: "none",
+                                WebkitUserSelect: "none",
+                                WebkitTouchCallout: "none",
+                                touchAction: "pan-y",
+                                cursor: isDragging[order.groupId] ? "grabbing" : "grab",
+                              }}
+                            >
+                              <div>
+                                {order.items.map((item) => (
+                                  <p className="text-sm text-party-300" key={item.id}>
+                                    {item.quantity}x {item.name}
+                                  </p>
+                                ))}
+                                {canCancel(order.status) ? (
+                                  <p className="text-xs text-party-300 mt-2">Swipe til venstre for at annullere</p>
+                                ) : null}
+                              </div>
+
+                              <span
+                                className={`text-sm border rounded-full px-3 py-1 ${statusClass(order.status)}`}
+                              >
+                                {getOrderStatusLabel(order.status)}
+                              </span>
+                            </article>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
             </div>
-            </div>
-            );
-          })}
-        </div>
+          </section>
+        </>
       )}
 
-      <div className="floating-bar fixed left-0 right-0 bottom-0 p-4 bg-party-950/95 backdrop-blur-sm border-t border-party-800">
-        <div className="max-w-4xl mx-auto">
-          <a
-            className="fancy-btn inline-flex bg-party-600 text-party-950 rounded-lg px-5 py-3 font-semibold"
-            href="/menu"
-          >
-            Tilføj ordrer
-          </a>
-        </div>
+      <div className="fixed left-0 right-0 bottom-5 flex justify-center pointer-events-none z-30">
+        <a
+          className="fancy-btn pointer-events-auto inline-flex bg-party-600 text-party-950 rounded-lg px-6 py-3 font-semibold shadow-lg"
+          href="/menu"
+        >
+          Tilføj ordrer
+        </a>
       </div>
       </div>
     </main>
