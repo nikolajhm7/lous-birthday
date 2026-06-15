@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/app/supabase";
-import { Drink } from "@/lib/models";
+import { Drink, MENU_CATEGORIES } from "@/lib/models";
 
 export default function MenuPage() {
   const [drinks, setDrinks] = useState<Drink[]>([]);
@@ -22,7 +22,7 @@ export default function MenuPage() {
     const fetchDrinks = async () => {
       const { data, error: drinksError } = await supabase
         .from("drinks")
-        .select("id,name,description,image_url,low_stock,price_dkk,is_active")
+        .select("id,name,description,image_url,category,alcohol_units,low_stock,price_dkk,is_active")
         .eq("is_active", true)
         .order("name", { ascending: true });
 
@@ -44,6 +44,21 @@ export default function MenuPage() {
     () => Object.values(cart).reduce((sum, quantity) => sum + quantity, 0),
     [cart]
   );
+
+  const drinksByCategory = useMemo(() => {
+    const grouped = new Map<string, Drink[]>();
+    for (const category of MENU_CATEGORIES) {
+      grouped.set(category.value, []);
+    }
+
+    for (const drink of drinks) {
+      const categoryKey = drink.category ?? "drinks";
+      const bucket = grouped.get(categoryKey) ?? grouped.get("drinks");
+      bucket?.push(drink);
+    }
+
+    return grouped;
+  }, [drinks]);
 
   const cartItems = useMemo(
     () =>
@@ -142,12 +157,28 @@ export default function MenuPage() {
       {error ? <p className="mb-4 text-party-300">{error}</p> : null}
       {message ? <p className="mb-4 text-party-400">{message}</p> : null}
 
-      <div className="stagger-list space-y-6 mb-10">
-        {drinks.map((drink) => {
-          const quantity = cart[drink.id] ?? 0;
+      <div className="space-y-10 mb-10">
+        {MENU_CATEGORIES.map((category) => {
+          const categoryItems = drinksByCategory.get(category.value) ?? [];
 
           return (
-          <article className="card-float menu-card glass-panel w-full p-0 rounded-2xl overflow-hidden text-left" key={drink.id}>
+            <section key={category.value}>
+              <div className="flex items-center gap-3 mb-4">
+                <h2 className="fade-up text-2xl font-semibold">{category.label}</h2>
+                <span className="text-xs border border-party-700 text-party-300 rounded-full px-2 py-1">
+                  {categoryItems.length}
+                </span>
+              </div>
+
+              {categoryItems.length === 0 ? (
+                <p className="text-party-300 text-sm">Ingen varer i {category.label.toLowerCase()} endnu.</p>
+              ) : (
+                <div className="stagger-list space-y-6">
+                  {categoryItems.map((drink) => {
+                    const quantity = cart[drink.id] ?? 0;
+
+                    return (
+                      <article className="card-float menu-card glass-panel w-full p-0 rounded-2xl overflow-hidden text-left" key={drink.id}>
               <div
                 className="h-56 w-full bg-party-800"
                 style={
@@ -204,13 +235,18 @@ export default function MenuPage() {
                   </div>
                 </div>
               </div>
-          </article>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           );
         })}
       </div>
 
       {totalItems > 0 ? (
-        <div className="floating-bar fixed left-0 right-0 bottom-0 p-4 bg-party-950/95 backdrop-blur-sm border-t border-party-800">
+        <div className="floating-bar bottom-bar-fixed p-4 bg-party-950/95 backdrop-blur-sm border-t border-party-800">
           <div className="max-w-4xl mx-auto cart-bar-wrap">
             <div className="cart-summary-block">
               <p className="font-semibold">{totalItems} drink{totalItems > 1 ? "s" : ""} i kurven</p>

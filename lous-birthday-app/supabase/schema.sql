@@ -5,6 +5,8 @@ create table if not exists public.drinks (
   name text not null,
   description text,
   image_url text,
+  category text not null default 'drinks' check (category in ('drinks', 'shots', 'vin', 'snacks')),
+  alcohol_units numeric not null default 0 check (alcohol_units >= 0),
   low_stock boolean not null default false,
   price_dkk integer not null check (price_dkk >= 0),
   is_active boolean not null default true,
@@ -13,6 +15,22 @@ create table if not exists public.drinks (
 
 alter table public.drinks add column if not exists image_url text;
 alter table public.drinks add column if not exists low_stock boolean not null default false;
+alter table public.drinks add column if not exists category text not null default 'drinks';
+alter table public.drinks add column if not exists alcohol_grams numeric;
+alter table public.drinks add column if not exists alcohol_units numeric not null default 0;
+update public.drinks set category = 'drinks' where category is null;
+update public.drinks
+set alcohol_units = case
+  when alcohol_grams is not null then alcohol_grams / 12
+  else alcohol_units
+end
+where alcohol_grams is not null;
+update public.drinks set alcohol_units = 0 where alcohol_units is null;
+alter table public.drinks drop constraint if exists drinks_category_check;
+alter table public.drinks add constraint drinks_category_check check (category in ('drinks', 'shots', 'vin', 'snacks'));
+alter table public.drinks drop constraint if exists drinks_alcohol_grams_check;
+alter table public.drinks drop constraint if exists drinks_alcohol_units_check;
+alter table public.drinks add constraint drinks_alcohol_units_check check (alcohol_units >= 0);
 
 do $$
 begin

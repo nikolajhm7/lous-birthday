@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/app/supabase";
-import { getOrderStatusLabel, OrderStatus } from "@/lib/models";
+import { getOrderStatusLabel, MenuCategory, OrderStatus } from "@/lib/models";
 
 type MyOrder = {
   id: string;
@@ -35,6 +35,27 @@ type GroupedMyOrder = {
   }[];
 };
 
+type ScoreboardOrderRow = {
+  guest_name: string;
+  quantity: number;
+  created_at: string;
+  drinks:
+    | {
+        category: MenuCategory;
+        alcohol_units: number;
+      }
+    | {
+        category: MenuCategory;
+        alcohol_units: number;
+      }[]
+    | null;
+};
+
+type ScoreboardEntry = {
+  guestName: string;
+  promille: number;
+};
+
 export default function OrdersPage() {
   const [groupedOrders, setGroupedOrders] = useState<GroupedMyOrder[]>([]);
   const [nickname, setNickname] = useState<string>("");
@@ -58,6 +79,8 @@ export default function OrdersPage() {
   const [isDragging, setIsDragging] = useState<Record<string, boolean>>({});
   const [hasGlobalDrag, setHasGlobalDrag] = useState(false);
   const [isRemoving, setIsRemoving] = useState<Record<string, boolean>>({});
+  const [scoreboard, setScoreboard] = useState<ScoreboardEntry[]>([]);
+  const [scoreboardUpdatedAt, setScoreboardUpdatedAt] = useState<string | null>(null);
   const removingGroupsRef = useRef<Record<string, boolean>>({});
 
   const urlBase64ToUint8Array = (base64String: string) => {
@@ -259,12 +282,72 @@ export default function OrdersPage() {
       setLoading(false);
     };
 
+    const fetchScoreboard = async () => {
+      const cutoff = new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString();
+      const fallbackAlcoholByCategory = (category: MenuCategory) => {
+        if (category === "shots") {
+          return 1;
+        }
+        if (category === "vin") {
+          return 0.9;
+        }
+        if (category === "snacks") {
+          return 0;
+        }
+        return 1.1;
+      };
+      const weightKg = 75;
+      const distributionRatio = 0.68;
+      const metabolismPerHour = 0.15;
+
+      const { data, error: scoreboardError } = await supabase
+        .from("orders")
+        .select("guest_name,quantity,created_at,drinks(category,alcohol_units)")
+        .gte("created_at", cutoff);
+
+      if (scoreboardError) {
+        return;
+      }
+
+      const perGuest = new Map<string, { promille: number; totalAlcoholGrams: number }>();
+
+      for (const row of (data ?? []) as ScoreboardOrderRow[]) {
+        const drink = Array.isArray(row.drinks) ? (row.drinks[0] ?? null) : row.drinks;
+        const category = drink?.category ?? "drinks";
+        const unitsPerDrink = drink?.alcohol_units ?? fallbackAlcoholByCategory(category);
+        const alcoholGrams = Math.max(0, unitsPerDrink) * 12 * row.quantity;
+        const consumedAt = new Date(row.created_at).getTime();
+        const elapsedHours = Math.max(0, (Date.now() - consumedAt) / (1000 * 60 * 60));
+        const initialPromille = alcoholGrams / (weightKg * distributionRatio);
+        const promilleNow = Math.max(0, initialPromille - elapsedHours * metabolismPerHour);
+
+        const current = perGuest.get(row.guest_name) ?? { promille: 0, totalAlcoholGrams: 0 };
+        perGuest.set(row.guest_name, {
+          promille: current.promille + promilleNow,
+          totalAlcoholGrams: current.totalAlcoholGrams + alcoholGrams,
+        });
+      }
+
+      const nextScoreboard = Array.from(perGuest.entries())
+        .map(([guestName, value]) => ({
+          guestName,
+          promille: Number(value.promille.toFixed(2)),
+        }))
+        .filter((entry) => entry.promille > 0)
+        .sort((a, b) => b.promille - a.promille)
+        .slice(0, 10);
+
+      setScoreboard(nextScoreboard);
+      setScoreboardUpdatedAt(new Date().toISOString());
+    };
+
     const timeoutId = window.setTimeout(() => {
       setNickname(savedNickname);
       if (notificationPermission === "granted") {
         void subscribeForPush(savedNickname);
       }
       void fetchOrders();
+      void fetchScoreboard();
     }, 0);
 
     const channel = supabase
@@ -281,6 +364,8 @@ export default function OrdersPage() {
           if (newGuestName === savedNickname) {
             void fetchOrders();
           }
+
+          void fetchScoreboard();
         }
       )
       .subscribe((status) => {
@@ -289,16 +374,19 @@ export default function OrdersPage() {
 
     const intervalId = window.setInterval(() => {
       void fetchOrders();
+      void fetchScoreboard();
     }, 8000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         void fetchOrders();
+        void fetchScoreboard();
       }
     };
 
     const handleFocus = () => {
       void fetchOrders();
+      void fetchScoreboard();
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -594,13 +682,47 @@ export default function OrdersPage() {
         </div>
       )}
 
+      <section className="card-float menu-card glass-panel rounded-xl p-4 mb-6">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="text-lg font-semibold">🏆 Promille Scoreboard</h2>
+          {scoreboardUpdatedAt ? (
+            <span className="text-xs text-party-300">
+              Opdateret {new Date(scoreboardUpdatedAt).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          ) : null}
+        </div>
+
+        {scoreboard.length === 0 ? (
+          <p className="text-sm text-party-300">Ingen score endnu — bestil noget 👀</p>
+        ) : (
+          <div className="space-y-2">
+            {scoreboard.map((entry, index) => (
+              <div
+                className="flex items-center justify-between gap-3 rounded-lg border border-party-800 bg-party-900/55 px-3 py-2"
+                key={entry.guestName}
+              >
+                <p className="text-sm text-party-100">
+                  <span className="text-party-300 mr-2">#{index + 1}</span>
+                  {entry.guestName}
+                </p>
+                <p className="text-sm font-semibold text-party-100">{entry.promille.toFixed(2)}‰</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="text-xs text-party-300 mt-3">
+          Estimat baseret på ordredata og standardantagelser — ikke en medicinsk måling.
+        </p>
+      </section>
+
       {groupedOrders.length === 0 ? (
         <p className="text-party-300">Ingen ordrer</p>
       ) : (
         <div className="stagger-list">
           {groupedOrders.map((order) => {
             const offset = swipeOffset[order.groupId] ?? 0;
-            const progress = Math.min(1, Math.max(0, Math.abs(offset) / 140));
+            const swipeProgress = Math.min(1, Math.max(0, Math.abs(offset) / 180));
             const removing = isRemoving[order.groupId] ?? false;
 
             return (
@@ -615,18 +737,34 @@ export default function OrdersPage() {
               <div className="min-h-0">
               <div className="relative overflow-hidden rounded-xl">
               <div
-                className="absolute inset-y-0 right-0 bg-party-700 text-party-100 px-4 flex items-center justify-center text-2xl"
+                className="absolute inset-0 bg-party-700 text-party-100 pr-5 flex items-center justify-end"
                 style={{
-                  opacity: removing ? 1 : progress,
-                  transform: `scale(${removing ? 1 : 0.84 + progress * 0.16})`,
-                  transition: "opacity 200ms ease, transform 200ms ease",
+                  opacity: removing ? 1 : offset < 0 ? 0.2 + swipeProgress * 0.8 : 0,
+                  transform: "scale(1)",
+                  transition: "opacity 90ms linear",
                 }}
                 aria-hidden="true"
               >
-                🗑️
+                <span className="trash-icon-wrap">
+                  <svg
+                    aria-hidden="true"
+                    className="trash-icon"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M9 3.75h6M10.5 3.75h3a1.5 1.5 0 0 1 1.5 1.5v.75h4.5m-15 0H6m12 0-1.05 12.08a2.25 2.25 0 0 1-2.24 2.05H9.29a2.25 2.25 0 0 1-2.24-2.05L6 6m4.5 3.75v6.75m3-6.75v6.75"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.8"
+                    />
+                  </svg>
+                </span>
               </div>
               <article
-                className="swipe-card card-float glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
+                className="swipe-card glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
                 onMouseDown={(event) => {
                   if (event.button !== 0) {
                     return;

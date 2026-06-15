@@ -1,10 +1,24 @@
 export type OrderStatus = "new" | "in_progress" | "ready" | "delivered";
 
+export type MenuCategory = "drinks" | "shots" | "vin" | "snacks";
+
+export const MENU_CATEGORIES: { value: MenuCategory; label: string }[] = [
+  { value: "drinks", label: "Drinks" },
+  { value: "shots", label: "Shots" },
+  { value: "vin", label: "Vin" },
+  { value: "snacks", label: "Snacks" },
+];
+
+export const getMenuCategoryLabel = (category: MenuCategory) =>
+  MENU_CATEGORIES.find((item) => item.value === category)?.label ?? category;
+
 export type Drink = {
   id: string;
   name: string;
   description: string | null;
   image_url: string | null;
+  category: MenuCategory;
+  alcohol_units: number;
   low_stock: boolean;
   price_dkk: number;
   is_active: boolean;

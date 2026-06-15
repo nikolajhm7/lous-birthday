@@ -6,6 +6,9 @@ import { supabase } from "@/app/supabase";
 import {
   Drink,
   getOrderStatusLabel,
+  getMenuCategoryLabel,
+  MENU_CATEGORIES,
+  MenuCategory,
   ORDER_STATUSES,
   OrderStatus,
   OrderWithDrink,
@@ -14,6 +17,15 @@ import {
 type DrinkFormState = {
   name: string;
   description: string;
+  category: MenuCategory;
+  alcohol_units: string;
+};
+
+type DrinkDraftState = {
+  name: string;
+  description: string;
+  category: MenuCategory;
+  alcohol_units: string;
 };
 
 type RawOrderDrink = {
@@ -54,16 +66,30 @@ export default function AdminPage() {
   const [drinkForm, setDrinkForm] = useState<DrinkFormState>({
     name: "",
     description: "",
+    category: "drinks",
+    alcohol_units: "1",
   });
   const [drinkImageFile, setDrinkImageFile] = useState<File | null>(null);
+  const [drinkDrafts, setDrinkDrafts] = useState<Record<string, DrinkDraftState>>({});
+  const [editingDrinks, setEditingDrinks] = useState<Record<string, boolean>>({});
+  const [drinkEditImageFiles, setDrinkEditImageFiles] = useState<Record<string, File | null>>({});
+  const [savingDrinkId, setSavingDrinkId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const getDraftForDrink = (drink: Drink): DrinkDraftState =>
+    drinkDrafts[drink.id] ?? {
+      name: drink.name,
+      description: drink.description ?? "",
+      category: drink.category,
+      alcohol_units: String(drink.alcohol_units ?? 0),
+    };
+
   const fetchDrinks = async () => {
     const { data, error: drinksError } = await supabase
       .from("drinks")
-      .select("id,name,description,image_url,low_stock,price_dkk,is_active")
+      .select("id,name,description,image_url,category,alcohol_units,low_stock,price_dkk,is_active")
       .order("name", { ascending: true });
 
     if (drinksError) {
@@ -239,6 +265,13 @@ export default function AdminPage() {
       return;
     }
 
+    const alcoholUnits = Number(drinkForm.alcohol_units);
+    if (!Number.isFinite(alcoholUnits) || alcoholUnits < 0) {
+      setError("Genstande skal være 0 eller højere.");
+      setUploading(false);
+      return;
+    }
+
     let uploadedImageUrl: string | null = null;
 
     if (drinkImageFile) {
@@ -268,6 +301,8 @@ export default function AdminPage() {
       name,
       description: drinkForm.description.trim() || null,
       image_url: uploadedImageUrl,
+      category: drinkForm.category,
+      alcohol_units: alcoholUnits,
       low_stock: false,
       is_active: true,
       price_dkk: 0,
@@ -279,7 +314,7 @@ export default function AdminPage() {
       return;
     }
 
-    setDrinkForm({ name: "", description: "" });
+    setDrinkForm({ name: "", description: "", category: "drinks", alcohol_units: "1" });
     setDrinkImageFile(null);
     setError(null);
     setUploading(false);
@@ -333,6 +368,193 @@ export default function AdminPage() {
     }
 
     setDrinks((previous) => previous.filter((currentDrink) => currentDrink.id !== drink.id));
+    setDrinkDrafts((previous) => {
+      const next = { ...previous };
+      delete next[drink.id];
+      return next;
+    });
+    setEditingDrinks((previous) => {
+      const next = { ...previous };
+      delete next[drink.id];
+      return next;
+    });
+    setDrinkEditImageFiles((previous) => {
+      const next = { ...previous };
+      delete next[drink.id];
+      return next;
+    });
+  };
+
+  const openEditDrink = (drink: Drink) => {
+    setEditingDrinks((previous) => ({ ...previous, [drink.id]: true }));
+    setDrinkDrafts((previous) => ({
+      ...previous,
+      [drink.id]: previous[drink.id] ?? {
+        name: drink.name,
+        description: drink.description ?? "",
+        category: drink.category,
+        alcohol_units: String(drink.alcohol_units ?? 0),
+      },
+    }));
+  };
+
+  const closeEditDrink = (drinkId: string) => {
+    setEditingDrinks((previous) => {
+      const next = { ...previous };
+      delete next[drinkId];
+      return next;
+    });
+    setDrinkDrafts((previous) => {
+      const next = { ...previous };
+      delete next[drinkId];
+      return next;
+    });
+    setDrinkEditImageFiles((previous) => {
+      const next = { ...previous };
+      delete next[drinkId];
+      return next;
+    });
+  };
+
+  const updateDrinkDraft = (
+    drinkId: string,
+    field: keyof DrinkDraftState,
+    value: string | MenuCategory
+  ) => {
+    setDrinkDrafts((previous) => ({
+      ...previous,
+      [drinkId]: {
+        name: previous[drinkId]?.name ?? drinks.find((item) => item.id === drinkId)?.name ?? "",
+        description:
+          previous[drinkId]?.description ??
+          drinks.find((item) => item.id === drinkId)?.description ??
+          "",
+        category:
+          previous[drinkId]?.category ??
+          drinks.find((item) => item.id === drinkId)?.category ??
+          "drinks",
+        alcohol_units:
+          previous[drinkId]?.alcohol_units ??
+          String(drinks.find((item) => item.id === drinkId)?.alcohol_units ?? 0),
+        [field]: value as never,
+      },
+    }));
+  };
+
+  const saveDrinkEdits = async (drink: Drink) => {
+    if (savingDrinkId) {
+      return;
+    }
+
+    const draft = getDraftForDrink(drink);
+    const normalizedName = draft.name.trim();
+    const replacementImageFile = drinkEditImageFiles[drink.id] ?? null;
+    const alcoholUnits = Number(draft.alcohol_units);
+
+    if (!normalizedName) {
+      setError("Drink navn må ikke være tomt.");
+      return;
+    }
+
+    if (!Number.isFinite(alcoholUnits) || alcoholUnits < 0) {
+      setError("Genstande skal være 0 eller højere.");
+      return;
+    }
+
+    setSavingDrinkId(drink.id);
+
+    let uploadedImageUrl: string | null | undefined;
+    if (replacementImageFile) {
+      const fileExt = replacementImageFile.name.includes(".")
+        ? replacementImageFile.name.split(".").pop()
+        : "jpg";
+      const filePath = `${crypto.randomUUID()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(DRINK_IMAGES_BUCKET)
+        .upload(filePath, replacementImageFile, { upsert: false });
+
+      if (uploadError) {
+        setError("Kunne ikke uploade nyt billede.");
+        setSavingDrinkId(null);
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(DRINK_IMAGES_BUCKET)
+        .getPublicUrl(filePath);
+
+      uploadedImageUrl = publicUrlData.publicUrl;
+    }
+
+    const nextDescription = draft.description.trim() || null;
+    const updatePayload: {
+      name: string;
+      description: string | null;
+      category: MenuCategory;
+      alcohol_units: number;
+      image_url?: string | null;
+    } = {
+      name: normalizedName,
+      description: nextDescription,
+      category: draft.category,
+      alcohol_units: alcoholUnits,
+    };
+
+    if (typeof uploadedImageUrl === "string") {
+      updatePayload.image_url = uploadedImageUrl;
+    }
+
+    const { error: updateError } = await supabase
+      .from("drinks")
+      .update(updatePayload)
+      .eq("id", drink.id);
+
+    if (updateError) {
+      setError("Kunne ikke gemme ændringer på drink.");
+      setSavingDrinkId(null);
+      return;
+    }
+
+    if (uploadedImageUrl && drink.image_url) {
+      const oldStoragePath = extractStoragePathFromPublicUrl(drink.image_url);
+      if (oldStoragePath) {
+        await supabase.storage.from(DRINK_IMAGES_BUCKET).remove([oldStoragePath]);
+      }
+    }
+
+    setDrinks((previous) =>
+      previous.map((item) =>
+        item.id === drink.id
+          ? {
+              ...item,
+              name: normalizedName,
+              description: nextDescription,
+              category: draft.category,
+              alcohol_units: alcoholUnits,
+              image_url: typeof uploadedImageUrl === "string" ? uploadedImageUrl : item.image_url,
+            }
+          : item
+      )
+    );
+
+    setDrinkDrafts((previous) => {
+      const next = { ...previous };
+      delete next[drink.id];
+      return next;
+    });
+    setDrinkEditImageFiles((previous) => {
+      const next = { ...previous };
+      delete next[drink.id];
+      return next;
+    });
+    setEditingDrinks((previous) => {
+      const next = { ...previous };
+      delete next[drink.id];
+      return next;
+    });
+    setError(null);
+    setSavingDrinkId(null);
   };
 
   const renderOrderCard = (order: GroupedAdminOrder) => (
@@ -444,6 +666,35 @@ export default function AdminPage() {
             value={drinkForm.description}
           />
 
+          <select
+            className="w-full border border-party-700 bg-party-950/80 rounded-lg p-2"
+            onChange={(event) =>
+              setDrinkForm((previous) => ({
+                ...previous,
+                category: event.target.value as MenuCategory,
+              }))
+            }
+            value={drinkForm.category}
+          >
+            {MENU_CATEGORIES.map((categoryOption) => (
+              <option key={categoryOption.value} value={categoryOption.value}>
+                {categoryOption.label}
+              </option>
+            ))}
+          </select>
+
+          <input
+            className="w-full border border-party-700 bg-party-950/80 rounded-lg p-2"
+            min="0"
+            onChange={(event) =>
+              setDrinkForm((previous) => ({ ...previous, alcohol_units: event.target.value }))
+            }
+            placeholder="Genstande pr stk"
+            step="0.1"
+            type="number"
+            value={drinkForm.alcohol_units}
+          />
+
           <input
             className="w-full border border-party-700 bg-party-950/80 rounded-lg p-2"
             accept="image/*"
@@ -461,53 +712,210 @@ export default function AdminPage() {
         </form>
 
         <div className="stagger-list space-y-4">
-          {drinks.map((drink) => (
-            <article
-              className="card-float menu-card glass-panel rounded-xl p-4 flex flex-col gap-3"
-              key={drink.id}
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="font-semibold">{drink.name}</p>
-                  {drink.description ? (
-                    <p className="text-sm text-party-300">{drink.description}</p>
-                  ) : null}
+          {drinks.map((drink) => {
+            const draft = getDraftForDrink(drink);
+            const normalizedDraftName = draft.name.trim();
+            const normalizedDraftDescription = draft.description.trim();
+            const normalizedDrinkDescription = (drink.description ?? "").trim();
+            const normalizedDraftAlcoholUnits = Number(draft.alcohol_units);
+            const replacementImageFile = drinkEditImageFiles[drink.id] ?? null;
+            const isEditing = editingDrinks[drink.id] ?? false;
+            const isDirty =
+              normalizedDraftName !== drink.name ||
+              normalizedDraftDescription !== normalizedDrinkDescription ||
+              draft.category !== drink.category ||
+              normalizedDraftAlcoholUnits !== drink.alcohol_units ||
+              Boolean(replacementImageFile);
+
+            return (
+              <article
+                className="card-float menu-card glass-panel rounded-xl p-4 flex flex-col gap-3"
+                key={drink.id}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="font-semibold">{drink.name}</p>
+                    <p className="text-xs text-party-200 mt-1">Kategori: {getMenuCategoryLabel(drink.category)}</p>
+                    {drink.description ? (
+                      <p className="admin-drink-description text-sm text-party-300 mt-1">{drink.description}</p>
+                    ) : null}
+                    {drink.image_url ? (
+                      <p className="text-xs text-party-300 mt-2">Billede: uploadet</p>
+                    ) : (
+                      <p className="text-xs text-party-300 mt-2">Billede: mangler</p>
+                    )}
+                    <p className="text-xs text-party-300 mt-1">Genstande: {drink.alcohol_units} / stk</p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      className="fancy-btn border border-party-700 rounded-lg h-9 w-9 inline-flex items-center justify-center"
+                      aria-label={isEditing ? "Luk redigering" : "Rediger"}
+                      title={isEditing ? "Luk redigering" : "Rediger"}
+                      onClick={() => (isEditing ? closeEditDrink(drink.id) : openEditDrink(drink))}
+                      type="button"
+                    >
+                      {isEditing ? (
+                        <span className="text-lg leading-none" aria-hidden="true">×</span>
+                      ) : (
+                        <svg
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.53 9.53a4.5 4.5 0 01-1.897 1.117l-3.224.966.966-3.224a4.5 4.5 0 011.117-1.898l9.386-9.673z"
+                            stroke="currentColor"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="1.7"
+                          />
+                        </svg>
+                      )}
+                    </button>
+
+                    <button
+                      className="fancy-btn border border-party-700 rounded-lg h-9 w-9 inline-flex items-center justify-center"
+                      aria-label="Fjern"
+                      title="Fjern"
+                      onClick={() => deleteDrink(drink)}
+                      type="button"
+                    >
+                      <svg
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M9 3.75h6M10.5 3.75h3a1.5 1.5 0 0 1 1.5 1.5v.75h4.5m-15 0H6m12 0-1.05 12.08a2.25 2.25 0 0 1-2.24 2.05H9.29a2.25 2.25 0 0 1-2.24-2.05L6 6m4.5 3.75v6.75m3-6.75v6.75"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="1.7"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
-                <button
-                  className="fancy-btn border border-party-700 rounded-lg px-3 py-1 text-sm"
-                  onClick={() => deleteDrink(drink)}
-                  type="button"
-                >
-                  Fjern
-                </button>
-              </div>
+                {isEditing ? (
+                  <>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <input
+                        className="w-full border border-party-700 bg-party-950/80 rounded-lg p-2"
+                        onChange={(event) => updateDrinkDraft(drink.id, "name", event.target.value)}
+                        placeholder="Navn"
+                        value={draft.name}
+                      />
 
-              <div className="flex flex-wrap items-center gap-4 text-sm">
-                <label className="flex items-center gap-2">
-                  <input
-                    checked={drink.is_active}
-                    onChange={(event) =>
-                      toggleDrinkField(drink.id, "is_active", event.target.checked)
-                    }
-                    type="checkbox"
-                  />
-                  Aktiv i menu
-                </label>
+                      <select
+                        className="w-full border border-party-700 bg-party-950/80 rounded-lg p-2"
+                        onChange={(event) =>
+                          updateDrinkDraft(drink.id, "category", event.target.value as MenuCategory)
+                        }
+                        value={draft.category}
+                      >
+                        {MENU_CATEGORIES.map((categoryOption) => (
+                          <option key={categoryOption.value} value={categoryOption.value}>
+                            {categoryOption.label}
+                          </option>
+                        ))}
+                      </select>
 
-                <label className="flex items-center gap-2">
-                  <input
-                    checked={drink.low_stock}
-                    onChange={(event) =>
-                      toggleDrinkField(drink.id, "low_stock", event.target.checked)
-                    }
-                    type="checkbox"
-                  />
-                  Få tilbage
-                </label>
-              </div>
-            </article>
-          ))}
+                      <input
+                        className="w-full border border-party-700 bg-party-950/80 rounded-lg p-2"
+                        min="0"
+                        onChange={(event) =>
+                          updateDrinkDraft(drink.id, "alcohol_units", event.target.value)
+                        }
+                        placeholder="Genstande pr stk"
+                        step="0.1"
+                        type="number"
+                        value={draft.alcohol_units}
+                      />
+                    </div>
+
+                    <input
+                      className="w-full border border-party-700 bg-party-950/80 rounded-lg p-2"
+                      onChange={(event) =>
+                        updateDrinkDraft(drink.id, "description", event.target.value)
+                      }
+                      placeholder="Beskrivelse"
+                      value={draft.description}
+                    />
+
+                    <input
+                      className="w-full border border-party-700 bg-party-950/80 rounded-lg p-2"
+                      accept="image/*"
+                      onChange={(event) =>
+                        setDrinkEditImageFiles((previous) => ({
+                          ...previous,
+                          [drink.id]: event.target.files?.[0] ?? null,
+                        }))
+                      }
+                      type="file"
+                    />
+
+                    {replacementImageFile ? (
+                      <p className="text-xs text-party-200">Nyt billede valgt: {replacementImageFile.name}</p>
+                    ) : null}
+
+                    <div className="flex flex-wrap items-center gap-3 text-sm">
+                      <button
+                        className="fancy-btn bg-party-600 text-party-950 rounded-lg px-3 py-1 font-semibold disabled:opacity-70"
+                        disabled={
+                          !isDirty ||
+                          savingDrinkId === drink.id ||
+                          !Number.isFinite(normalizedDraftAlcoholUnits) ||
+                          normalizedDraftAlcoholUnits < 0
+                        }
+                        onClick={() => saveDrinkEdits(drink)}
+                        type="button"
+                      >
+                        {savingDrinkId === drink.id ? "Gemmer..." : "Gem ændringer"}
+                      </button>
+
+                      <button
+                        className="fancy-btn border border-party-700 rounded-lg px-3 py-1 text-sm"
+                        onClick={() => closeEditDrink(drink.id)}
+                        type="button"
+                      >
+                        Annuller
+                      </button>
+                    </div>
+                  </>
+                ) : null}
+
+                <div className="flex flex-wrap items-center gap-4 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      checked={drink.is_active}
+                      onChange={(event) =>
+                        toggleDrinkField(drink.id, "is_active", event.target.checked)
+                      }
+                      type="checkbox"
+                    />
+                    Aktiv i menu
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      checked={drink.low_stock}
+                      onChange={(event) =>
+                        toggleDrinkField(drink.id, "low_stock", event.target.checked)
+                      }
+                      type="checkbox"
+                    />
+                    Få tilbage
+                  </label>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
       </div>
