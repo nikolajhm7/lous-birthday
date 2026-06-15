@@ -59,6 +59,18 @@ type GroupedAdminOrder = {
 };
 
 const DRINK_IMAGES_BUCKET = "drink-images";
+const PARTY_MISSIONS = [
+  "Find en at skale med inden 2 minutter 🥂",
+  "Tag en selfie med en ny ven 📸",
+  "Byt plads med personen til venstre i 1 sang 🔄",
+  "Giv et kompliment til 3 personer ✨",
+  "Lav dit bedste dansetrin i 20 sekunder 💃",
+  "Start en mini-skålerunde med 4 personer 🍻",
+  "Find den mest farverige drink og vis den frem 🌈",
+  "Syng med på omkvædet i næste sang 🎤",
+  "Lær et nyt navn og gentag det højt 🫶",
+  "Lav en hemmelig high-five med en fremmed 🙌",
+];
 
 export default function AdminPage() {
   const [orders, setOrders] = useState<OrderWithDrink[]>([]);
@@ -75,6 +87,12 @@ export default function AdminPage() {
   const [drinkEditImageFiles, setDrinkEditImageFiles] = useState<Record<string, File | null>>({});
   const [savingDrinkId, setSavingDrinkId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [sendingMissions, setSendingMissions] = useState(false);
+  const [missionStatus, setMissionStatus] = useState<string | null>(null);
+  const [missionTitle, setMissionTitle] = useState("🎯 Festmission");
+  const [missionBodyTemplate, setMissionBodyTemplate] = useState(
+    "{name}, din mission: {mission}"
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -252,6 +270,93 @@ export default function AdminPage() {
         setError(result?.error ?? "Push-notifikation kunne ikke sendes.");
       }
     }
+  };
+
+  const sendMissionsToAll = async () => {
+    if (sendingMissions) {
+      return;
+    }
+
+    setSendingMissions(true);
+    setMissionStatus(null);
+    setError(null);
+
+    const trimmedTitle = missionTitle.trim();
+    const trimmedBodyTemplate = missionBodyTemplate.trim();
+
+    if (!trimmedTitle || !trimmedBodyTemplate) {
+      setError("Udfyld både titel og besked for mission-notifikationen.");
+      setSendingMissions(false);
+      return;
+    }
+
+    const { data, error: subscriptionsError } = await supabase
+      .from("push_subscriptions")
+      .select("guest_name");
+
+    if (subscriptionsError) {
+      setError("Kunne ikke hente push-abonnenter.");
+      setSendingMissions(false);
+      return;
+    }
+
+    const guestNames = Array.from(
+      new Set(
+        (data ?? [])
+          .map((row) => (row as { guest_name?: string }).guest_name?.trim() ?? "")
+          .filter((name) => name.length > 0)
+      )
+    );
+
+    if (guestNames.length === 0) {
+      setError("Ingen brugere med aktive notifikationer endnu.");
+      setSendingMissions(false);
+      return;
+    }
+
+    const shuffledMissions = [...PARTY_MISSIONS].sort(() => Math.random() - 0.5);
+
+    const results = await Promise.allSettled(
+      guestNames.map(async (guestName, index) => {
+        const mission = shuffledMissions[index % shuffledMissions.length];
+        const resolvedTitle = trimmedTitle
+          .replaceAll("{name}", guestName)
+          .replaceAll("{mission}", mission);
+        const resolvedBody = trimmedBodyTemplate
+          .replaceAll("{name}", guestName)
+          .replaceAll("{mission}", mission);
+        const response = await fetch("/api/push/notify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            guestName,
+            title: resolvedTitle,
+            body: resolvedBody,
+            tag: `party-mission-${Date.now()}-${index}`,
+            url: "/orders",
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Mission fejlede for ${guestName}`);
+        }
+
+        return guestName;
+      })
+    );
+
+    const successCount = results.filter((result) => result.status === "fulfilled").length;
+
+    if (successCount === 0) {
+      setError("Kunne ikke sende mission-notifikationer.");
+      setSendingMissions(false);
+      return;
+    }
+
+    setMissionStatus(`Mission sendt til ${successCount} bruger${successCount > 1 ? "e" : ""} 🎉`);
+    setSendingMissions(false);
   };
 
   const handleCreateDrink = async (event: FormEvent<HTMLFormElement>) => {
@@ -614,6 +719,37 @@ export default function AdminPage() {
       <a className="fancy-btn inline-flex border border-party-700 rounded-lg px-4 py-2 mb-6" href="/qr">
         Åbn printvenlig QR
       </a>
+
+      <div className="mb-6 card-float menu-card glass-panel rounded-xl p-4 space-y-3">
+        <p className="font-semibold text-party-100">Mission-notifikation</p>
+        <input
+          className="w-full border border-party-700 bg-party-950/80 rounded-lg p-2"
+          onChange={(event) => setMissionTitle(event.target.value)}
+          placeholder="Titel"
+          value={missionTitle}
+        />
+        <textarea
+          className="w-full border border-party-700 bg-party-950/80 rounded-lg p-2 min-h-24"
+          onChange={(event) => setMissionBodyTemplate(event.target.value)}
+          placeholder="Besked"
+          value={missionBodyTemplate}
+        />
+        <p className="text-xs text-party-300">
+          Brug placeholders: {"{name}"} for brugerens navn og {"{mission}"} for den tilfældige mission.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3">
+        <button
+          className="fancy-btn inline-flex bg-party-600 text-party-950 rounded-lg px-4 py-2 font-semibold disabled:opacity-70"
+          disabled={sendingMissions}
+          onClick={sendMissionsToAll}
+          type="button"
+        >
+          {sendingMissions ? "Sender missioner..." : "Send mission til alle"}
+        </button>
+        {missionStatus ? <p className="text-sm text-party-200">{missionStatus}</p> : null}
+        </div>
+      </div>
 
       {error ? <p className="mb-4 text-party-300">{error}</p> : null}
 
