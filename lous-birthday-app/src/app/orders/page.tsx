@@ -713,7 +713,7 @@ export default function OrdersPage() {
         )}
 
         <p className="text-xs text-party-300 mt-3">
-          *Estimat baseret på ordredata og standardantagelser — ikke en medicinsk måling.
+          Estimat baseret på ordredata og standardantagelser — ikke en medicinsk måling.
         </p>
       </section>
 
