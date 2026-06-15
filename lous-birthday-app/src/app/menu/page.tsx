@@ -246,7 +246,7 @@ export default function MenuPage() {
       </div>
 
       {totalItems > 0 ? (
-        <div className="floating-bar bottom-bar-fixed p-4 bg-party-950/95 backdrop-blur-sm border-t border-party-800">
+        <div className="menu-order-dock floating-bar bottom-bar-fixed p-4 bg-party-950 border-t border-party-800">
           <div className="max-w-4xl mx-auto cart-bar-wrap">
             <div className="cart-summary-block">
               <p className="font-semibold">{totalItems} drink{totalItems > 1 ? "s" : ""} i kurven</p>
