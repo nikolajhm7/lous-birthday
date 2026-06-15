@@ -80,6 +80,7 @@ export default function OrdersPage() {
   const [hasGlobalDrag, setHasGlobalDrag] = useState(false);
   const [isRemoving, setIsRemoving] = useState<Record<string, boolean>>({});
   const [scoreboard, setScoreboard] = useState<ScoreboardEntry[]>([]);
+  const [hasScoreboardOrders, setHasScoreboardOrders] = useState(false);
   const [scoreboardUpdatedAt, setScoreboardUpdatedAt] = useState<string | null>(null);
   const removingGroupsRef = useRef<Record<string, boolean>>({});
 
@@ -308,6 +309,8 @@ export default function OrdersPage() {
       if (scoreboardError) {
         return;
       }
+
+      setHasScoreboardOrders((data ?? []).length > 0);
 
       const perGuest = new Map<string, { promille: number; totalAlcoholGrams: number }>();
 
@@ -683,39 +686,37 @@ export default function OrdersPage() {
         </div>
       )}
 
-      <section className="card-float menu-card glass-panel rounded-xl p-4 mb-6">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <h2 className="text-lg font-semibold">🏆 Promille Scoreboard</h2>
-          {scoreboardUpdatedAt ? (
-            <span className="text-xs text-party-300">
-              Opdateret {new Date(scoreboardUpdatedAt).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })}
-            </span>
-          ) : null}
-        </div>
-
-        {scoreboard.length === 0 ? (
-          <p className="text-sm text-party-300">Ingen score endnu — bestil noget 👀</p>
-        ) : (
-          <div className="space-y-2">
-            {scoreboard.map((entry, index) => (
-              <div
-                className="flex items-center justify-between gap-3 rounded-lg border border-party-800 bg-party-900/55 px-3 py-2"
-                key={entry.guestName}
-              >
-                <p className="text-sm text-party-100">
-                  <span className="text-party-300 mr-2">#{index + 1}</span>
-                  {entry.guestName}
-                </p>
-                <p className="text-sm font-semibold text-party-100">{entry.promille.toFixed(2)}‰</p>
-              </div>
-            ))}
+      {hasScoreboardOrders ? (
+        <section className="card-float menu-card glass-panel rounded-xl p-4 mb-6">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-lg font-semibold">🏆 Promille Scoreboard</h2>
+            {scoreboardUpdatedAt ? (
+              <span className="text-xs text-party-300">
+                Opdateret {new Date(scoreboardUpdatedAt).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            ) : null}
           </div>
-        )}
 
-        <p className="text-xs text-party-300 mt-3">
-          Estimat baseret på ordredata og standardantagelser — ikke en medicinsk måling.
-        </p>
-      </section>
+          {scoreboard.length === 0 ? (
+            <p className="text-sm text-party-300">Ingen score endnu — bestil noget 👀</p>
+          ) : (
+            <div className="space-y-2">
+              {scoreboard.map((entry, index) => (
+                <div
+                  className="flex items-center justify-between gap-3 rounded-lg border border-party-800 bg-party-900/55 px-3 py-2"
+                  key={entry.guestName}
+                >
+                  <p className="text-sm text-party-100">
+                    <span className="text-party-300 mr-2">#{index + 1}</span>
+                    {entry.guestName}
+                  </p>
+                  <p className="text-sm font-semibold text-party-100">{entry.promille.toFixed(2)}‰</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
 
       {groupedOrders.length === 0 ? (
         <p className="text-party-300">Ingen ordrer</p>
