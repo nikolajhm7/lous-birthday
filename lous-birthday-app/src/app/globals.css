@@ -109,6 +109,220 @@ h3 {
   border-color: var(--party-700);
 }
 
+.stagger-list > * {
+  opacity: 0;
+  animation: fadeUp 500ms ease forwards;
+}
+
+.stagger-list > *:nth-child(1) {
+  animation-delay: 40ms;
+}
+
+.stagger-list > *:nth-child(2) {
+  animation-delay: 90ms;
+}
+
+.stagger-list > *:nth-child(3) {
+  animation-delay: 140ms;
+}
+
+.stagger-list > *:nth-child(4) {
+  animation-delay: 190ms;
+}
+
+.stagger-list > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+
+.stagger-list > *:nth-child(6) {
+  animation-delay: 290ms;
+}
+
+.stagger-list > *:nth-child(n + 7) {
+  animation-delay: 340ms;
+}
+
+.floating-bar {
+  animation: barRise 440ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.pulse-live {
+  position: relative;
+}
+
+.pulse-live::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 1px solid rgba(110, 231, 183, 0.45);
+  animation: pulseRing 2s ease-out infinite;
+  pointer-events: none;
+}
+
+.menu-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.menu-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 179, 193, 0.14), transparent 50%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+}
+
+.menu-card:hover::before {
+  opacity: 1;
+}
+
+.menu-back-btn {
+  border: 1px solid var(--party-700);
+  border-radius: 9999px;
+  padding: 0.55rem 0.95rem;
+  background: color-mix(in oklab, var(--party-900) 74%, black 26%);
+  color: var(--party-100);
+}
+
+.cart-bar-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cart-summary-block {
+  min-width: 0;
+}
+
+.cart-items-list {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-height: 4.5rem;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.cart-item-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--party-700);
+  background: color-mix(in oklab, var(--party-900) 70%, black 30%);
+  border-radius: 9999px;
+  padding: 0.26rem 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.1;
+  color: var(--party-200);
+}
+
+.cart-item-qty {
+  color: var(--party-100);
+  font-weight: 700;
+}
+
+.notification-active {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(110, 231, 183, 0.45);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(6, 78, 59, 0.24));
+  color: #d1fae5;
+  border-radius: 9999px;
+  padding: 0.45rem 0.85rem;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.18);
+}
+
+.notification-dot {
+  width: 0.52rem;
+  height: 0.52rem;
+  border-radius: 9999px;
+  background: #6ee7b7;
+  box-shadow: 0 0 0 0 rgba(110, 231, 183, 0.6);
+  animation: statusBlink 1.8s ease-in-out infinite;
+}
+
+.qty-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 44px;
+}
+
+.qty-inline-shell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  border: 1px solid var(--party-700);
+  background: color-mix(in oklab, var(--party-900) 76%, black 24%);
+  border-radius: 9999px;
+  overflow: hidden;
+  width: 44px;
+  max-width: 172px;
+  transition: width 260ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 220ms ease;
+}
+
+.qty-inline-shell.open {
+  width: 172px;
+  box-shadow: 0 6px 18px rgba(255, 117, 143, 0.22);
+}
+
+.qty-inline-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--party-100);
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  transition: background-color 180ms ease, transform 160ms ease;
+}
+
+.qty-inline-btn:hover {
+  background: rgba(255, 179, 193, 0.16);
+}
+
+.qty-inline-btn:active {
+  transform: scale(0.96);
+}
+
+.qty-inline-count {
+  min-width: 80px;
+  text-align: center;
+  color: var(--party-100);
+  font-weight: 600;
+  opacity: 0;
+  transform: translateX(6px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.qty-inline-shell.open .qty-inline-count {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.qty-inline-shell:not(.open) .qty-inline-count,
+.qty-inline-shell:not(.open) .qty-inline-btn.decrease {
+  pointer-events: none;
+}
+
+.qty-inline-shell:not(.open) {
+  justify-content: center;
+}
+
+.qty-inline-shell:not(.open) .qty-inline-count,
+.qty-inline-shell:not(.open) .qty-inline-btn.decrease {
+  display: none;
+}
+
 .swipe-card,
 .swipe-card * {
   user-select: none;
@@ -271,6 +485,40 @@ h3 {
   }
 }
 
+@keyframes barRise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+@keyframes statusBlink {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(110, 231, 183, 0.5);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 8px rgba(110, 231, 183, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .party-hero::before,
   .app-shell::before,
@@ -278,16 +526,36 @@ h3 {
   .party-card,
   .party-title,
   .card-float,
-  .fade-up {
+  .fade-up,
+  .stagger-list > *,
+  .floating-bar,
+  .pulse-live::after,
+  .notification-dot {
     animation: none;
   }
 
   .fancy-btn,
   .fancy-btn:hover,
   .fancy-btn:active,
-  .card-float:hover {
+  .card-float:hover,
+  .qty-inline-shell,
+  .qty-inline-count,
+  .qty-inline-btn,
+  .menu-card::before,
+  .menu-back-btn {
     transition: none;
     transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .cart-bar-wrap {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cart-bar-wrap > button {
+    width: 100%;
   }
 }
 

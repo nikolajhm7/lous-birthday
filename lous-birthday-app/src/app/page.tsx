@@ -58,13 +58,13 @@ export default function Home() {
       <div className="party-blob party-blob-two" />
       <div className="party-blob party-blob-three" />
 
-      <div className="party-card glass-panel p-8 rounded-2xl w-full max-w-md">
+      <div className="party-card menu-card glass-panel p-8 rounded-2xl w-full max-w-md">
         <h1 className="party-title text-3xl font-bold text-center mb-6">
           🍸 Velkommen 🍸
         </h1>
 
         <input
-          className="w-full border border-party-700 bg-party-950/80 text-party-100 rounded-lg p-3 mb-4"
+          className="fancy-btn w-full border border-party-700 bg-party-950/80 text-party-100 rounded-lg p-3 mb-4"
           placeholder="Dit navn"
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}

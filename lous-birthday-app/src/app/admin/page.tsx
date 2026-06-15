@@ -336,7 +336,7 @@ export default function AdminPage() {
   };
 
   const renderOrderCard = (order: GroupedAdminOrder) => (
-    <article className="card-float glass-panel rounded-xl p-4" key={order.groupId}>
+    <article className="card-float menu-card glass-panel rounded-xl p-4" key={order.groupId}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="font-semibold text-party-100">{order.guest_name}</p>
@@ -397,7 +397,7 @@ export default function AdminPage() {
 
       <section className="mb-10">
         <h2 className="text-2xl font-semibold mb-4">Nuværende</h2>
-        <div className="space-y-4">
+        <div className="stagger-list space-y-4">
           {grouped.active.length === 0 ? (
             <p>Ingen aktive bestillinger.</p>
           ) : (
@@ -408,7 +408,7 @@ export default function AdminPage() {
 
       <section>
         <h2 className="text-2xl font-semibold mb-4">Tidligere</h2>
-        <div className="space-y-4">
+        <div className="stagger-list space-y-4">
           {grouped.done.length === 0 ? (
             <p>Ingen tidligere bestillinger.</p>
           ) : (
@@ -421,7 +421,7 @@ export default function AdminPage() {
         <h2 className="text-2xl font-semibold mb-4">Drinks kort</h2>
 
         <form
-          className="glass-panel rounded-xl p-4 space-y-3 mb-6"
+          className="card-float menu-card glass-panel rounded-xl p-4 space-y-3 mb-6"
           onSubmit={handleCreateDrink}
         >
           <p className="font-semibold">Tilføj drink</p>
@@ -460,10 +460,10 @@ export default function AdminPage() {
           </button>
         </form>
 
-        <div className="space-y-4">
+        <div className="stagger-list space-y-4">
           {drinks.map((drink) => (
             <article
-              className="card-float glass-panel rounded-xl p-4 flex flex-col gap-3"
+              className="card-float menu-card glass-panel rounded-xl p-4 flex flex-col gap-3"
               key={drink.id}
             >
               <div className="flex items-center justify-between gap-4">

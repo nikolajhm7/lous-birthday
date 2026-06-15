@@ -568,7 +568,7 @@ export default function OrdersPage() {
         <span
           className={`text-xs rounded-full px-3 py-1 border ${
             isLive
-              ? "border-emerald-300 text-emerald-100 bg-emerald-300/15"
+              ? "pulse-live border-emerald-300 text-emerald-100 bg-emerald-300/15"
               : "border-party-700 text-party-300"
           }`}
         >
@@ -587,13 +587,17 @@ export default function OrdersPage() {
           Aktivér notifikationer
         </button>
       ) : (
-        <p className="text-sm text-emerald-200 mb-6">Notifikationer er aktive 🔔</p>
+        <div className="notification-active mb-6" role="status" aria-live="polite">
+          <span className="notification-dot" aria-hidden="true" />
+          <span className="text-sm font-medium">Notifikationer er aktive</span>
+          <span aria-hidden="true">🔔</span>
+        </div>
       )}
 
       {groupedOrders.length === 0 ? (
         <p className="text-party-300">Ingen ordrer</p>
       ) : (
-        <div>
+        <div className="stagger-list">
           {groupedOrders.map((order) => {
             const offset = swipeOffset[order.groupId] ?? 0;
             const progress = Math.min(1, Math.max(0, Math.abs(offset) / 140));
@@ -622,7 +626,7 @@ export default function OrdersPage() {
                 🗑️
               </div>
               <article
-                className="swipe-card glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
+                className="swipe-card card-float glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
                 onMouseDown={(event) => {
                   if (event.button !== 0) {
                     return;
@@ -709,7 +713,7 @@ export default function OrdersPage() {
         </div>
       )}
 
-      <div className="fixed left-0 right-0 bottom-0 p-4 bg-party-950/95 backdrop-blur-sm border-t border-party-800">
+      <div className="floating-bar fixed left-0 right-0 bottom-0 p-4 bg-party-950/95 backdrop-blur-sm border-t border-party-800">
         <div className="max-w-4xl mx-auto">
           <a
             className="fancy-btn inline-flex bg-party-600 text-party-950 rounded-lg px-5 py-3 font-semibold"

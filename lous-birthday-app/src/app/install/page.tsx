@@ -49,7 +49,7 @@ export default function InstallPage() {
       <div className="party-blob party-blob-two" />
       <div className="party-blob party-blob-three" />
 
-      <div className="party-card glass-panel p-8 rounded-2xl w-full max-w-md text-center">
+      <div className="party-card menu-card glass-panel p-8 rounded-2xl w-full max-w-md text-center">
         <h1 className="party-title text-3xl font-bold mb-4">📲 Installér Lou&apos;s Drinks</h1>
         <p className="text-party-300 mb-6">
           Installer appen på hjemmeskærmen for hurtig adgang og notifikationer.

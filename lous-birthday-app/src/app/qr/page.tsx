@@ -26,8 +26,8 @@ export default function QrPage() {
   return (
     <main className="app-shell min-h-screen p-6 bg-party-950 text-party-100">
       <div className="app-content max-w-3xl mx-auto">
-        <div className="glass-panel rounded-2xl p-6 md:p-10">
-          <h1 className="text-3xl md:text-4xl font-bold mb-3">🎉 Scan og bestil drinks 🎉</h1>
+        <div className="card-float menu-card glass-panel rounded-2xl p-6 md:p-10">
+          <h1 className="fade-up text-3xl md:text-4xl font-bold mb-3">🎉 Scan og bestil drinks 🎉</h1>
           <p className="text-party-300 mb-6">Scan QR-koden for at installere appen og åbne bestillingssiden.</p>
 
           <div className="bg-white rounded-2xl p-4 md:p-6 mb-5 mx-auto w-full max-w-xl">
@@ -43,7 +43,7 @@ export default function QrPage() {
 
           <p className="text-sm text-party-300 break-all mb-6">Link: {orderUrl}</p>
 
-          <div className="no-print flex flex-wrap gap-3">
+          <div className="no-print stagger-list flex flex-wrap gap-3">
             <button
               className="fancy-btn bg-party-600 text-party-950 rounded-lg px-5 py-3 font-semibold"
               onClick={() => window.print()}

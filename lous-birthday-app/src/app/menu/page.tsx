@@ -45,6 +45,18 @@ export default function MenuPage() {
     [cart]
   );
 
+  const cartItems = useMemo(
+    () =>
+      drinks
+        .map((drink) => ({
+          id: drink.id,
+          name: drink.name,
+          quantity: cart[drink.id] ?? 0,
+        }))
+        .filter((item) => item.quantity > 0),
+    [cart, drinks]
+  );
+
   const addOne = (drinkId: string) => {
     setCart((previous) => ({
       ...previous,
@@ -119,20 +131,23 @@ export default function MenuPage() {
   }
 
   return (
-    <main className="app-shell min-h-screen p-8 pb-32 bg-party-950 text-party-100">
+    <main className="app-shell min-h-screen p-8 pb-44 bg-party-950 text-party-100">
       <div className="app-content max-w-4xl mx-auto">
       <h1 className="fade-up text-4xl font-bold mb-8">🍹 Menukort</h1>
-      <a className="inline-block mb-6 text-party-300 underline" href="/orders">
-        ← Tilbage til dine ordrer
+      <a className="fancy-btn menu-back-btn inline-flex items-center gap-2 mb-6" href="/orders">
+        <span aria-hidden="true">←</span>
+        <span>Tilbage til dine ordrer</span>
       </a>
 
       {error ? <p className="mb-4 text-party-300">{error}</p> : null}
       {message ? <p className="mb-4 text-party-400">{message}</p> : null}
 
-      <div className="space-y-6 mb-10">
-        {drinks.map((drink) => (
-          <article className="relative pr-12" key={drink.id}>
-            <div className="card-float glass-panel w-full p-0 rounded-2xl overflow-hidden text-left">
+      <div className="stagger-list space-y-6 mb-10">
+        {drinks.map((drink) => {
+          const quantity = cart[drink.id] ?? 0;
+
+          return (
+          <article className="card-float menu-card glass-panel w-full p-0 rounded-2xl overflow-hidden text-left" key={drink.id}>
               <div
                 className="h-56 w-full bg-party-800"
                 style={
@@ -166,45 +181,50 @@ export default function MenuPage() {
                   <p className="text-sm text-party-300 mt-2">{drink.description}</p>
                 ) : null}
 
-                {(cart[drink.id] ?? 0) > 0 ? (
-                  <div className="mt-4 flex items-center gap-3">
+                <div className="qty-control mt-4">
+                  <div className={`qty-inline-shell ${quantity > 0 ? "open" : ""}`}>
                     <button
-                      className="fancy-btn border border-party-700 rounded-lg px-3 py-1"
+                      aria-label="Fjern én"
+                      className="qty-inline-btn decrease"
                       onClick={() => removeOne(drink.id)}
+                      tabIndex={quantity > 0 ? 0 : -1}
                       type="button"
                     >
                       -
                     </button>
-                    <span className="font-semibold">{cart[drink.id]} valgt</span>
+                    <span className="qty-inline-count">{quantity} valgt</span>
                     <button
-                      className="fancy-btn border border-party-700 rounded-lg px-3 py-1"
+                      aria-label="Tilføj én"
+                      className="qty-inline-btn"
                       onClick={() => addOne(drink.id)}
                       type="button"
                     >
                       +
                     </button>
                   </div>
-                ) : null}
+                </div>
               </div>
-            </div>
-
-            <button
-              className="fancy-btn absolute right-0 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-party-600 text-party-950 text-2xl leading-none flex items-center justify-center"
-              onClick={() => addOne(drink.id)}
-              type="button"
-            >
-              +
-            </button>
           </article>
-        ))}
+          );
+        })}
       </div>
 
       {totalItems > 0 ? (
-        <div className="fixed left-0 right-0 bottom-0 p-4 bg-party-950/95 backdrop-blur-sm border-t border-party-800">
-          <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
-            <p>{totalItems} drink{totalItems > 1 ? "s" : ""} i kurven</p>
+        <div className="floating-bar fixed left-0 right-0 bottom-0 p-4 bg-party-950/95 backdrop-blur-sm border-t border-party-800">
+          <div className="max-w-4xl mx-auto cart-bar-wrap">
+            <div className="cart-summary-block">
+              <p className="font-semibold">{totalItems} drink{totalItems > 1 ? "s" : ""} i kurven</p>
+              <ul className="cart-items-list" aria-label="Varer i kurv">
+                {cartItems.map((item) => (
+                  <li className="cart-item-chip" key={item.id}>
+                    <span className="cart-item-qty">{item.quantity}x</span>
+                    <span>{item.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
             <button
-              className="fancy-btn bg-party-600 text-party-950 rounded-lg px-5 py-3 font-semibold disabled:opacity-70"
+              className="fancy-btn bg-party-600 text-party-950 rounded-lg px-5 py-3 font-semibold disabled:opacity-70 whitespace-nowrap"
               disabled={sending}
               onClick={handleSubmitOrder}
               type="button"
