@@ -7,12 +7,44 @@ type DeferredPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
+const getCookieValue = (key: string) => {
+  if (typeof document === "undefined") {
+    return "";
+  }
+
+  const match = document.cookie
+    .split(";")
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(`${key}=`));
+
+  return match ? decodeURIComponent(match.split("=").slice(1).join("=")) : "";
+};
+
+const getPersistedNickname = () => {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return localStorage.getItem("nickname")?.trim() ?? getCookieValue("nickname") ?? "";
+};
+
 export default function Home() {
-  const [nickname, setNickname] = useState("");
+  const [nickname, setNickname] = useState(() => getPersistedNickname());
+  const [savedNickname, setSavedNickname] = useState<string | null>(() => {
+    const persisted = getPersistedNickname();
+    return persisted || null;
+  });
   const [deferredPrompt, setDeferredPrompt] = useState<DeferredPromptEvent | null>(null);
   const [showIosHint, setShowIosHint] = useState(false);
 
   useEffect(() => {
+    const localNickname = localStorage.getItem("nickname")?.trim() ?? "";
+    const cookieNickname = getCookieValue("nickname").trim();
+
+    if (!localNickname && cookieNickname) {
+      localStorage.setItem("nickname", cookieNickname);
+    }
+
     const isIOS = /iPhone|iPad|iPod/i.test(window.navigator.userAgent);
     const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
     const timeoutId = window.setTimeout(() => {
@@ -49,6 +81,7 @@ export default function Home() {
     }
 
     localStorage.setItem("nickname", trimmed);
+    document.cookie = `nickname=${encodeURIComponent(trimmed)}; Max-Age=31536000; Path=/; SameSite=Lax`;
     window.location.href = "/orders";
   };
 
@@ -63,19 +96,44 @@ export default function Home() {
           🍸 Velkommen 🍸
         </h1>
 
-        <input
-          className="fancy-btn w-full border border-party-700 bg-party-950/80 text-party-100 rounded-lg p-3 mb-4"
-          placeholder="Dit navn"
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-        />
+        {savedNickname ? (
+          <div className="space-y-3 mb-4">
+            <button
+              className="fancy-btn w-full bg-party-600 text-party-950 py-3 rounded-lg font-semibold"
+              onClick={handleContinue}
+              type="button"
+            >
+              Fortsæt som {savedNickname}
+            </button>
 
-        <button
-          className="fancy-btn w-full bg-party-600 text-party-950 py-3 rounded-lg font-semibold"
-          onClick={handleContinue}
-        >
-          Fortsæt
-        </button>
+            <button
+              className="fancy-btn w-full border border-party-700 text-party-100 py-3 rounded-lg font-semibold"
+              onClick={() => {
+                setSavedNickname(null);
+                setNickname("");
+              }}
+              type="button"
+            >
+              Brug et andet navn
+            </button>
+          </div>
+        ) : (
+          <>
+            <input
+              className="fancy-btn w-full border border-party-700 bg-party-950/80 text-party-100 rounded-lg p-3 mb-4"
+              placeholder="Dit navn"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+            />
+
+            <button
+              className="fancy-btn w-full bg-party-600 text-party-950 py-3 rounded-lg font-semibold"
+              onClick={handleContinue}
+            >
+              Fortsæt
+            </button>
+          </>
+        )}
 
         {deferredPrompt ? (
           <button
