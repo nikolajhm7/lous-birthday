@@ -623,11 +623,11 @@ h3 {
   }
 
   .bottom-bar-fixed {
-    position: sticky;
-    left: auto;
-    right: auto;
+    position: fixed;
+    left: 0;
+    right: 0;
     bottom: 0;
-    z-index: 20;
+    z-index: 40;
     padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
   }
 
