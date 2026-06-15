@@ -607,7 +607,7 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="app-shell min-h-screen p-8 bg-party-950 text-party-100">
+    <main className="app-shell orders-shell min-h-screen p-8 bg-party-950 text-party-100">
       <div className="app-content max-w-4xl mx-auto">
       <h1 className="fade-up text-4xl font-bold mb-8">🧾 Admin: Bestillinger</h1>
 

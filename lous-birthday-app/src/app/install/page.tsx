@@ -44,7 +44,7 @@ export default function InstallPage() {
   };
 
   return (
-    <main className="party-hero min-h-screen flex items-center justify-center bg-party-950 text-party-100 px-4">
+    <main className="app-shell orders-shell party-hero min-h-screen flex items-center justify-center bg-party-950 text-party-100 px-4">
       <div className="party-blob party-blob-one" />
       <div className="party-blob party-blob-two" />
       <div className="party-blob party-blob-three" />

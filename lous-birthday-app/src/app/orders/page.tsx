@@ -653,7 +653,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <main className="app-shell min-h-screen p-8 pb-28 bg-party-950 text-party-100">
+    <main className="app-shell orders-shell min-h-screen p-8 pb-28 bg-party-950 text-party-100">
       <div className="app-content max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-4 mb-2">
         <h1 className="fade-up text-4xl font-bold">📋 Dine ordrer</h1>
@@ -687,7 +687,7 @@ export default function OrdersPage() {
       )}
 
       {hasScoreboardOrders ? (
-        <section className="card-float menu-card glass-panel rounded-xl p-4 mb-6">
+        <section className="orders-spotlight card-float menu-card glass-panel rounded-xl p-4 mb-6">
           <div className="flex items-center justify-between gap-3 mb-3">
             <h2 className="text-lg font-semibold">🏆 Promille Scoreboard</h2>
             {scoreboardUpdatedAt ? (
@@ -722,7 +722,7 @@ export default function OrdersPage() {
         <p className="text-party-300">Ingen ordrer</p>
       ) : (
         <>
-          <section className="mb-8">
+          <section className="orders-group-section mb-8">
             <h2 className="text-xl font-semibold mb-3">Nuværende ordrer</h2>
             <div className="stagger-list">
               {groupedOrders.filter((order) => isCurrentOrder(order.status)).length === 0 ? (
@@ -774,7 +774,7 @@ export default function OrdersPage() {
                               </span>
                             </div>
                             <article
-                              className="swipe-card relative z-10 glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
+                              className="orders-card swipe-card relative z-10 glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
                               onMouseDown={(event) => {
                                 if (event.button !== 0) {
                                   return;
@@ -848,7 +848,7 @@ export default function OrdersPage() {
                               </div>
 
                               <span
-                                className={`text-sm border rounded-full px-3 py-1 ${statusClass(order.status)}`}
+                                className={`status-pill text-sm border rounded-full px-3 py-1 ${statusClass(order.status)}`}
                               >
                                 {getOrderStatusLabel(order.status)}
                               </span>
@@ -862,7 +862,7 @@ export default function OrdersPage() {
             </div>
           </section>
 
-          <section>
+          <section className="orders-group-section">
             <h2 className="text-xl font-semibold mb-3">Forrige ordrer</h2>
             <div className="stagger-list">
               {groupedOrders.filter((order) => !isCurrentOrder(order.status)).length === 0 ? (
@@ -914,7 +914,7 @@ export default function OrdersPage() {
                               </span>
                             </div>
                             <article
-                              className="swipe-card relative z-10 glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
+                              className="orders-card swipe-card relative z-10 glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
                               onMouseDown={(event) => {
                                 if (event.button !== 0) {
                                   return;
@@ -988,7 +988,7 @@ export default function OrdersPage() {
                               </div>
 
                               <span
-                                className={`text-sm border rounded-full px-3 py-1 ${statusClass(order.status)}`}
+                                className={`status-pill text-sm border rounded-full px-3 py-1 ${statusClass(order.status)}`}
                               >
                                 {getOrderStatusLabel(order.status)}
                               </span>

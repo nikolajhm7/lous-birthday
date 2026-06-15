@@ -146,7 +146,7 @@ export default function MenuPage() {
   }
 
   return (
-    <main className="app-shell min-h-screen p-8 pb-44 bg-party-950 text-party-100">
+    <main className="app-shell orders-shell min-h-screen p-8 pb-44 bg-party-950 text-party-100">
       <div className="app-content max-w-4xl mx-auto">
       <h1 className="fade-up text-4xl font-bold mb-8">🍹 Menukort</h1>
       <a className="fancy-btn menu-back-btn inline-flex items-center gap-2 mb-6" href="/orders">

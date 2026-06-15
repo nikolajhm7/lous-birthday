@@ -24,7 +24,7 @@ export default function QrPage() {
   );
 
   return (
-    <main className="app-shell min-h-screen p-6 bg-party-950 text-party-100">
+    <main className="app-shell orders-shell min-h-screen p-6 bg-party-950 text-party-100">
       <div className="app-content max-w-3xl mx-auto">
         <div className="card-float menu-card glass-panel rounded-2xl p-6 md:p-10">
           <h1 className="fade-up text-3xl md:text-4xl font-bold mb-3">🎉 Scan og bestil drinks 🎉</h1>
