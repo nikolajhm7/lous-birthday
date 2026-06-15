@@ -82,6 +82,7 @@ export default function OrdersPage() {
   const [scoreboard, setScoreboard] = useState<ScoreboardEntry[]>([]);
   const [scoreboardUpdatedAt, setScoreboardUpdatedAt] = useState<string | null>(null);
   const removingGroupsRef = useRef<Record<string, boolean>>({});
+  const swipeHapticStateRef = useRef<Record<string, boolean>>({});
 
   const urlBase64ToUint8Array = (base64String: string) => {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -95,6 +96,14 @@ export default function OrdersPage() {
 
     return outputArray;
   };
+
+  const triggerHaptic = useCallback((pattern: number | number[]) => {
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") {
+      return;
+    }
+
+    navigator.vibrate(pattern);
+  }, []);
 
   const subscribeForPush = useCallback(async (guestName: string) => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -485,6 +494,7 @@ export default function OrdersPage() {
 
     setRemovingState(groupId, true);
     setSwipeOffset((previous) => ({ ...previous, [groupId]: -120 }));
+    triggerHaptic(20);
 
     const itemIds = targetGroup.items.map((item) => item.id);
 
@@ -515,6 +525,7 @@ export default function OrdersPage() {
         delete next[groupId];
         return next;
       });
+      delete swipeHapticStateRef.current[groupId];
       setIsDragging((previous) => {
         const next = { ...previous };
         delete next[groupId];
@@ -522,7 +533,7 @@ export default function OrdersPage() {
       });
       setRemovingState(groupId, false);
     }, 260);
-  }, [groupedOrders, isRemoving, setRemovingState]);
+  }, [groupedOrders, isRemoving, setRemovingState, triggerHaptic]);
 
   const handleSwipeStart = (
     groupId: string,
@@ -557,8 +568,16 @@ export default function OrdersPage() {
 
     const delta = clientX - startX;
     const clamped = Math.max(-180, Math.min(0, delta));
+    const pastThreshold = clamped <= -90;
+    const previouslyPastThreshold = swipeHapticStateRef.current[active.groupId] ?? false;
+
+    if (pastThreshold !== previouslyPastThreshold) {
+      swipeHapticStateRef.current[active.groupId] = pastThreshold;
+      triggerHaptic(pastThreshold ? 12 : 6);
+    }
+
     setSwipeOffset((previous) => ({ ...previous, [active.groupId]: clamped }));
-  }, []);
+  }, [triggerHaptic]);
 
   const handleSwipeEnd = useCallback((groupId: string, status: OrderStatus) => {
     if (!canCancel(status)) {
@@ -575,6 +594,7 @@ export default function OrdersPage() {
 
     const currentOffset = swipeOffsetRef.current[groupId] ?? 0;
     delete swipeStartXRef.current[groupId];
+    delete swipeHapticStateRef.current[groupId];
 
     if (currentOffset <= -90) {
       void cancelOrderGroup(groupId);
@@ -744,9 +764,9 @@ export default function OrdersPage() {
                         key={order.groupId}
                       >
                         <div className="min-h-0">
-                          <div className="relative overflow-hidden rounded-xl">
+                          <div className="relative isolate overflow-hidden rounded-xl">
                             <div
-                              className="absolute inset-0 bg-party-700 text-party-100 pr-5 flex items-center justify-end"
+                              className="absolute inset-0 z-0 bg-party-700 text-party-100 pr-5 flex items-center justify-end"
                               style={{
                                 opacity: removing ? 1 : offset < 0 ? 0.2 + swipeProgress * 0.8 : 0,
                                 transform: "scale(1)",
@@ -773,7 +793,7 @@ export default function OrdersPage() {
                               </span>
                             </div>
                             <article
-                              className="swipe-card glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
+                              className="swipe-card relative z-10 glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
                               onMouseDown={(event) => {
                                 if (event.button !== 0) {
                                   return;
@@ -884,9 +904,9 @@ export default function OrdersPage() {
                         key={order.groupId}
                       >
                         <div className="min-h-0">
-                          <div className="relative overflow-hidden rounded-xl">
+                          <div className="relative isolate overflow-hidden rounded-xl">
                             <div
-                              className="absolute inset-0 bg-party-700 text-party-100 pr-5 flex items-center justify-end"
+                              className="absolute inset-0 z-0 bg-party-700 text-party-100 pr-5 flex items-center justify-end"
                               style={{
                                 opacity: removing ? 1 : offset < 0 ? 0.2 + swipeProgress * 0.8 : 0,
                                 transform: "scale(1)",
@@ -913,7 +933,7 @@ export default function OrdersPage() {
                               </span>
                             </div>
                             <article
-                              className="swipe-card glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
+                              className="swipe-card relative z-10 glass-panel rounded-xl p-4 flex items-center justify-between gap-4 touch-pan-y select-none"
                               onMouseDown={(event) => {
                                 if (event.button !== 0) {
                                   return;
@@ -1003,7 +1023,7 @@ export default function OrdersPage() {
         </>
       )}
 
-      <div className="fixed left-0 right-0 bottom-5 flex justify-center pointer-events-none z-30">
+      <div className="fixed left-0 right-0 bottom-5 flex justify-center pointer-events-none z-[120] [transform:translateZ(0)] [isolation:isolate]">
         <a
           className="fancy-btn pointer-events-auto inline-flex bg-party-600 text-party-950 rounded-lg px-6 py-3 font-semibold shadow-lg"
           href="/menu"
