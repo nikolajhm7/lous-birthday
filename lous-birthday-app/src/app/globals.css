@@ -541,11 +541,36 @@ h3 {
 .orders-fixed-action {
   position: fixed;
   left: 50%;
-  bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  bottom: calc(max(0.9rem, env(safe-area-inset-bottom)) + 0.55rem);
   transform: translateX(-50%) translateZ(0);
-  z-index: 9999;
+  z-index: 11000;
   isolation: isolate;
+  contain: paint;
+  will-change: transform;
   pointer-events: auto;
+}
+
+.orders-fixed-action::after {
+  content: "";
+  position: absolute;
+  left: -24vw;
+  right: -24vw;
+  bottom: -34svh;
+  height: 34svh;
+  background: var(--page-background);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.orders-fixed-action > a {
+  border: 1px solid rgba(255, 196, 214, 0.28);
+  box-shadow: 0 10px 24px rgba(28, 2, 11, 0.4);
+}
+
+@supports (-webkit-touch-callout: none) {
+  .orders-fixed-action {
+    bottom: calc(env(safe-area-inset-bottom) + 0.95rem);
+  }
 }
 
 .fade-up {

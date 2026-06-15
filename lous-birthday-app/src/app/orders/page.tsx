@@ -653,6 +653,7 @@ export default function OrdersPage() {
   }
 
   return (
+    <>
     <main className="app-shell orders-shell min-h-screen p-8 pb-28 bg-party-950 text-party-100">
       <div className="app-content max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-4 mb-2">
@@ -1004,15 +1005,16 @@ export default function OrdersPage() {
         </>
       )}
 
-      <div className="orders-fixed-action">
-        <a
-          className="fancy-btn inline-flex bg-party-600 text-party-950 rounded-lg px-6 py-3 font-semibold shadow-lg"
-          href="/menu"
-        >
-          Tilføj ordrer
-        </a>
-      </div>
       </div>
     </main>
+    <div className="orders-fixed-action">
+      <a
+        className="fancy-btn inline-flex bg-party-600 text-party-950 rounded-lg px-6 py-3 font-semibold shadow-lg"
+        href="/menu"
+      >
+        Tilføj ordrer
+      </a>
+    </div>
+    </>
   );
 }
