@@ -236,6 +236,13 @@ h3 {
   font-weight: 700;
 }
 
+.menu-cart-submit {
+  min-height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .notification-active {
   display: inline-flex;
   align-items: center;
@@ -607,10 +614,27 @@ h3 {
   .cart-bar-wrap {
     flex-direction: column;
     align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.7rem;
   }
 
-  .cart-bar-wrap > button {
+  .cart-summary-block {
     width: 100%;
+  }
+
+  .bottom-bar-fixed {
+    z-index: 60;
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  }
+
+  .menu-cart-submit {
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    z-index: 140;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
   }
 }
 

@@ -260,7 +260,7 @@ export default function MenuPage() {
               </ul>
             </div>
             <button
-              className="fancy-btn bg-party-600 text-party-950 rounded-lg px-5 py-3 font-semibold disabled:opacity-70 whitespace-nowrap"
+              className="fancy-btn menu-cart-submit bg-party-600 text-party-950 rounded-lg px-5 py-3 font-semibold disabled:opacity-70 whitespace-nowrap"
               disabled={sending}
               onClick={handleSubmitOrder}
               type="button"
